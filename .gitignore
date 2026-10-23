@@ -1,0 +1,12 @@
+plans/
+*__pycache__/
+
+report/out/
+report/images
+logs/
+
+*/tests/*
+.env
+
+.vscode
+.pytest_cache
