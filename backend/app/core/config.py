@@ -40,7 +40,7 @@ class Settings:
         object.__setattr__(
             self,
             "app_cors_origins",
-            [origin.strip().rstrip('/') for origin in os.getenv("APP_CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173").split(",") if origin.strip()],
+            [origin.strip().rstrip('/') for origin in os.getenv("APP_CORS_ORIGINS", "https://thanhtech.cloud,https://levietthanh1412.github.io,http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173").split(",") if origin.strip()],
         )
 
 

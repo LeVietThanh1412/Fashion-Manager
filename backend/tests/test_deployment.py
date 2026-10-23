@@ -11,6 +11,12 @@ from main import app
 from scripts.build_frontend_config import build_config
 
 
+def test_default_cors_allows_the_deployed_frontend(monkeypatch):
+    from app.core.config import Settings
+    monkeypatch.delenv('APP_CORS_ORIGINS', raising=False)
+    assert 'https://thanhtech.cloud' in Settings().app_cors_origins
+
+
 @pytest.mark.parametrize('url', ['', 'http://api.example.com', 'https://localhost', 'https://127.0.0.1', 'https://api.example.com?password=secret', 'https://user:pass@api.example.com'])
 def test_pages_rejects_invalid_or_private_backend(url):
     with pytest.raises(ValueError):
