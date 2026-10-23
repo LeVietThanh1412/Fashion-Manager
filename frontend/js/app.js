@@ -26,6 +26,7 @@ function switchTab(tabId) {
   if (tabId === 'products') loadProducts();
   if (tabId === 'categories') loadCategories();
   if (tabId === 'settings') loadStores();
+  if (tabId === 'analytics') loadAnalyticsSummary();
 }
 
 // ── Mobile Menu ───────────────────────────────────────────────────
@@ -51,13 +52,9 @@ function showToast(message) {
 
 // ── Init ──────────────────────────────────────────────────────────
 window.onload = function () {
-  lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
 
   document.getElementById('mobileMenuBtn').addEventListener('click', toggleMobileMenu);
 
-  loadProducts();
-  loadCategories();
-  loadStores();
-  loadAnalyticsSummary();
-  checkBackendHealth();
+  return triggerSync(false);
 };

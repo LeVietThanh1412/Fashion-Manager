@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from mysql.connector import Error as MySQLError
 import uvicorn
 
 from app.core.config import settings
@@ -21,6 +23,14 @@ app.include_router(orders_router)
 app.include_router(query_explorer_router)
 
 
+@app.exception_handler(MySQLError)
+async def mysql_error_handler(request, exc):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Không thể đọc/ghi MySQL. Kiểm tra kết nối, quyền truy cập và schema database."},
+    )
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -40,7 +50,7 @@ def database_health() -> dict[str, str]:
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Không thể kết nối MySQL: {exc}",
+            detail="Không thể kết nối MySQL. Kiểm tra DB_HOST, DB_PORT, tài khoản và TLS trên backend.",
         ) from exc
 
 

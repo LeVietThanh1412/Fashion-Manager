@@ -1,147 +1,76 @@
-name: CI — Verify & Sync with Aiven
+name: CI and deploy frontend
 
-# Trigger: mỗi lần push lên nhánh main hoặc mở Pull Request vào main
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────
-  # JOB 1: Kiểm tra code Python (lint + unit test không cần DB)
-  # ─────────────────────────────────────────────────────────────────
-  lint-and-test:
-    name: 🧹 Lint & Unit Tests
+  test:
+    name: Unit tests and static checks
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/requirements.txt
-
-      - name: Install dependencies
-        working-directory: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m pip install -r backend/requirements.txt
+      - name: Run unit tests without database credentials
+        run: python -m pytest backend/tests --tb=short -q
+      - name: Check Python and SQL
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      # Chạy pytest — các test không cần DB sẽ pass,
-      # các test cần DB sẽ bị skip gracefully (NOT RUN)
-      - name: Run pytest
-        working-directory: backend
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          APP_CORS_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
+          python -m compileall -q backend scripts
+          python scripts/check_queries.py
+      - name: Check frontend JavaScript
         run: |
-          python -m pytest --tb=short -q
+          node --check frontend/js/api.js
+          node --check frontend/js/app.js
+          node --test frontend/tests/*.test.cjs
 
-  # ─────────────────────────────────────────────────────────────────
-  # JOB 2: Kết nối Aiven & verify database (chỉ chạy khi push main)
-  # ─────────────────────────────────────────────────────────────────
-  verify-database:
-    name: 🗄️ Verify Aiven Database
+  build:
+    name: Prepare GitHub Pages
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    needs: lint-and-test          # Chạy sau khi lint xong
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
-
-      - name: Install DB driver
-        run: |
-          python -m pip install --upgrade pip
-          pip install mysql-connector-python python-dotenv
-
-      # Dùng script verify_db.py đã có sẵn trong repo
-      - name: Verify DB connection & table data (scripts/verify_db.py)
+      - name: Generate public API configuration
         env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          APP_CORS_ORIGINS: ${{ vars.FRONTEND_ORIGIN || 'http://localhost:5173' }}
-        run: |
-          test -n "$DB_HOST" && test -n "$DB_PORT" && test -n "$DB_NAME" && test -n "$DB_USER" && test -n "$DB_PASSWORD"
-          echo "=== Kiểm tra kết nối tới Aiven ==="
-          python scripts/verify_db.py
-          echo "=== Kết nối OK ==="
+          FRONTEND_API_URL: ${{ vars.FRONTEND_API_URL || secrets.FRONTEND_API_URL }}
+        run: python scripts/build_frontend_config.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: frontend
 
-      - name: Generate frontend API configuration
-        env:
-          FRONTEND_API_URL: ${{ vars.FRONTEND_API_URL || 'http://127.0.0.1:8000' }}
-        working-directory: frontend
-        run: |
-          python -c "import os; from pathlib import Path; url=os.environ['FRONTEND_API_URL']; Path('config.js').write_text('window.FASHION_MANAGER_API_URL = ' + repr(url) + ';\\n', encoding='utf-8')"
-          grep -q "FASHION_MANAGER_API_URL" config.js
-
-      # Chạy nhanh một câu lệnh SQL thông qua Python để kiểm tra schema
-      - name: Smoke-test API endpoints (FastAPI startup)
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          APP_CORS_ORIGINS: ${{ vars.FRONTEND_ORIGIN || 'http://localhost:5173' }}
-        working-directory: backend
-        run: |
-          pip install -r requirements.txt
-          # Khởi động server nền, đợi sẵn, test endpoint, rồi tắt
-          uvicorn main:app --host 127.0.0.1 --port 8000 &
-          SERVER_PID=$!
-          sleep 4
-          echo "=== Test GET /health ==="
-          curl -sf http://127.0.0.1:8000/health | python -m json.tool
-          echo "=== Test GET /api/health/db (must be real MySQL) ==="
-          curl -sf http://127.0.0.1:8000/api/health/db | python -m json.tool
-          echo "=== Test GET /api/products ==="
-          curl -sf http://127.0.0.1:8000/api/products | python -m json.tool
-          echo "=== Test GET /api/categories ==="
-          curl -sf http://127.0.0.1:8000/api/categories | python -m json.tool
-          echo "=== Test GET /api/analytics/summary ==="
-          curl -sf http://127.0.0.1:8000/api/analytics/summary | python -m json.tool
-          kill $SERVER_PID
-          echo "=== Smoke tests PASSED ==="
-
-  # ─────────────────────────────────────────────────────────────────
-  # JOB 3: Thông báo kết quả lên GitHub Summary
-  # ─────────────────────────────────────────────────────────────────
-  notify:
-    name: 📋 Summary
+  deploy:
+    name: Deploy GitHub Pages
+    needs: build
     runs-on: ubuntu-latest
-    needs: [lint-and-test, verify-database]
-    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
-
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Write job summary
-        run: |
-          echo "## 🚀 Fashion Manager — Deploy Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧹 Lint & Unit Tests | ${{ needs.lint-and-test.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🗄️ Verify Aiven DB  | ${{ needs.verify-database.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+      - name: Deploy frontend
+        id: deployment
+        uses: actions/deploy-pages@v4

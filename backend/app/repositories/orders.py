@@ -31,4 +31,4 @@ def create_order(
             finally:
                 cursor.close()
     except Exception:
-        return
+        raise

@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: fashion-manager-api
+    runtime: python
+    plan: free
+    # Keep the repository root: the API also reads sql/app and sql/query.
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python -m uvicorn main:app --app-dir backend --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.13"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: APP_CORS_ORIGINS
+        value: https://levietthanh1412.github.io

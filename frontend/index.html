@@ -79,14 +79,14 @@
       <div class="bg-[#e6e6e4] rounded-xl p-3.5 border border-zinc-300/60">
         <div class="flex items-center gap-2 mb-1">
           <span id="syncDot" class="w-2 h-2 rounded-full bg-zinc-800 inline-block"></span>
-          <span id="syncTitle" class="text-[12.5px] font-semibold text-zinc-900">Web đang khớp dữ liệu</span>
+          <span id="syncTitle" class="text-[12.5px] font-semibold text-zinc-900">Đang kiểm tra kết nối</span>
         </div>
         <p id="syncDesc" class="text-[11.5px] text-zinc-500 leading-relaxed mb-3">
-          Bấm Đồng bộ dữ liệu để web cập nhật, mất vài phút.
+          Đang kết nối tới backend để đọc dữ liệu MySQL.
         </p>
         <button id="syncBtn" onclick="triggerSync()" class="w-full bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-medium text-[12.5px] py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all">
           <i data-lucide="rocket" id="syncIcon" class="w-3.5 h-3.5"></i>
-          <span id="syncBtnText">Đồng bộ dữ liệu</span>
+          <span id="syncBtnText">Tải lại dữ liệu</span>
         </button>
       </div>
     </div>
@@ -104,6 +104,7 @@
         <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6">
           <h2 class="text-[16px] font-semibold text-zinc-900">Tổng quan hệ thống</h2>
           <p class="text-[12.5px] text-zinc-500 mt-1">Các số liệu dưới đây được đọc trực tiếp từ database.</p>
+          <p id="summaryStatus" role="status" class="text-xs text-zinc-500 mt-2">Đang tải số liệu...</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5">
             <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
               <div class="text-xs text-zinc-500">Sản phẩm</div>
@@ -149,6 +150,11 @@
                 <!-- Populated by api.js -->
               </tbody>
             </table>
+          </div>
+          <div class="flex items-center justify-end gap-3 mt-4 text-sm">
+            <button id="productsPrevious" onclick="changeProductPage(-1)" disabled class="px-3 py-2 border rounded-lg disabled:opacity-40">Trang trước</button>
+            <span id="productsPage">Trang 1</span>
+            <button id="productsNext" onclick="changeProductPage(1)" disabled class="px-3 py-2 border rounded-lg disabled:opacity-40">Trang sau</button>
           </div>
         </section>
       </div>
