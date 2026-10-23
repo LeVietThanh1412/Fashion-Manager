@@ -81,9 +81,18 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           APP_CORS_ORIGINS: ${{ vars.FRONTEND_ORIGIN || 'http://localhost:5173' }}
         run: |
+          test -n "$DB_HOST" && test -n "$DB_PORT" && test -n "$DB_NAME" && test -n "$DB_USER" && test -n "$DB_PASSWORD"
           echo "=== Kiểm tra kết nối tới Aiven ==="
           python scripts/verify_db.py
           echo "=== Kết nối OK ==="
+
+      - name: Generate frontend API configuration
+        env:
+          FRONTEND_API_URL: ${{ vars.FRONTEND_API_URL || 'http://127.0.0.1:8000' }}
+        working-directory: frontend
+        run: |
+          python -c "import os; from pathlib import Path; url=os.environ['FRONTEND_API_URL']; Path('config.js').write_text('window.FASHION_MANAGER_API_URL = ' + repr(url) + ';\\n', encoding='utf-8')"
+          grep -q "FASHION_MANAGER_API_URL" config.js
 
       # Chạy nhanh một câu lệnh SQL thông qua Python để kiểm tra schema
       - name: Smoke-test API endpoints (FastAPI startup)

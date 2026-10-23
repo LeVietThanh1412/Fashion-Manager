@@ -44,7 +44,7 @@ CREATE TABLE nhan_vien (
     ho_ten VARCHAR(255) NOT NULL,
     so_dien_thoai VARCHAR(25) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
-    ma_cua_hang VARCHAR(20) NOT NULL,
+    ma_cua_hang VARCHAR(20),
     ma_quan_ly VARCHAR(20),
 
     FOREIGN KEY (ma_cua_hang)
