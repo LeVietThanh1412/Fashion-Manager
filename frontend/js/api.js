@@ -34,7 +34,7 @@ function renderMessage(container, message, className = 'text-zinc-500') {
   const element = document.createElement(isTable ? 'tr' : 'p');
   const content = isTable ? document.createElement('td') : element;
   if (isTable) {
-    content.colSpan = container.id === 'visitLogBody' ? 6 : 4;
+    content.colSpan = container.id === 'orderLogBody' ? 6 : 4;
     element.appendChild(content);
   }
   content.className = `py-6 text-sm ${className}`;
@@ -180,7 +180,7 @@ async function triggerSync(notify = true) {
   button.disabled = true;
   text.textContent = 'Đang tải dữ liệu...';
   try {
-    const results = await Promise.allSettled([checkBackendHealth(), loadProducts(), loadCategories(), loadStores(), loadAnalyticsSummary(), loadVisitAnalytics()]);
+    const results = await Promise.allSettled([checkBackendHealth(), loadProducts(), loadCategories(), loadStores(), loadAnalyticsSummary(), loadSalesAnalytics()]);
     const success = results.every(result => result.status === 'fulfilled' && result.value === true);
     if (notify) showToast(success ? 'Đã tải lại dữ liệu từ database.' : 'Tải dữ liệu chưa hoàn tất. Xem lỗi tại từng mục.');
     return success;

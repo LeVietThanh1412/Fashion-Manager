@@ -6,8 +6,14 @@ from mysql.connector import ProgrammingError
 from pydantic import BaseModel, Field
 
 from app.repositories.analytics import get_visit_dashboard, record_visit
+from app.repositories.sales import get_sales_dashboard
 
 router = APIRouter(prefix='/api/analytics', tags=['analytics'])
+
+
+@router.get('/sales')
+def sales_dashboard() -> dict:
+    return get_sales_dashboard()
 
 
 class VisitInput(BaseModel):
