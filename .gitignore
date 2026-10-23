@@ -7,6 +7,7 @@ logs/
 
 */tests/*
 .env
+frontend/config.js
 
 .vscode
 .pytest_cache

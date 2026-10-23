@@ -1,6 +1,6 @@
 // ── Tab Switching ─────────────────────────────────────────────────
 function switchTab(tabId) {
-  const tabs = ['analytics', 'products', 'categories', 'settings', 'account'];
+  const tabs = ['analytics', 'products', 'categories', 'settings'];
   tabs.forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.classList.add('hidden');
@@ -25,6 +25,7 @@ function switchTab(tabId) {
   // Reload data when switching to relevant tabs
   if (tabId === 'products') loadProducts();
   if (tabId === 'categories') loadCategories();
+  if (tabId === 'settings') loadStores();
 }
 
 // ── Mobile Menu ───────────────────────────────────────────────────
@@ -54,11 +55,9 @@ window.onload = function () {
 
   document.getElementById('mobileMenuBtn').addEventListener('click', toggleMobileMenu);
 
-  render30DaysChart();
-  renderHourlyChart();
-  renderVisitLogs();
   loadProducts();
   loadCategories();
+  loadStores();
+  loadAnalyticsSummary();
   checkBackendHealth();
 };
-

@@ -67,24 +67,12 @@
           <i data-lucide="store" class="w-4 h-4 text-zinc-500"></i>
           <span>Thông tin chung</span>
         </button>
-        <button onclick="switchTab('account')" data-tab="account" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900 transition-colors">
-          <i data-lucide="users" class="w-4 h-4 text-zinc-500"></i>
-          <span>Tài khoản</span>
-        </button>
       </nav>
     </div>
 
     <!-- Bottom Actions & Sync Box -->
     <div class="space-y-3 pt-4">
       <div class="space-y-0.5 px-1">
-        <a href="#preview-store" onclick="showToast('Đang mở trang cửa hàng Fashion - Manager...')" class="flex items-center gap-3 px-2.5 py-2 rounded-lg text-[13px] text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900 transition-colors">
-          <i data-lucide="external-link" class="w-4 h-4 text-zinc-500"></i>
-          <span>Xem trang web</span>
-        </a>
-        <button onclick="showToast('Đã đăng xuất khỏi phiên quản trị.')" class="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-[13px] text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900 transition-colors text-left">
-          <i data-lucide="log-out" class="w-4 h-4 text-zinc-500"></i>
-          <span>Đăng xuất</span>
-        </button>
       </div>
 
       <!-- Sync Status Card -->
@@ -111,124 +99,30 @@
   <main class="flex-1 h-full overflow-y-auto px-4 sm:px-7 py-5 md:py-6">
     <div class="max-w-[1180px] mx-auto space-y-5">
 
-      <!-- TAB 1: ANALYTICS / TRANG CHỦ -->
+      <!-- TAB 1: TỔNG QUAN DATABASE -->
       <div id="tab-analytics" class="space-y-5">
-        
-        <!-- 1. Top Card: 30 Days Views Bar Chart -->
-        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-          <div class="flex items-center justify-between mb-6">
-            <div>
-              <h2 class="text-[15px] font-semibold text-zinc-900">30 ngày gần nhất</h2>
-              <p class="text-[12.5px] text-zinc-500 mt-0.5">Tổng cộng 24 lượt xem trang cửa hàng thời trang</p>
+        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6">
+          <h2 class="text-[16px] font-semibold text-zinc-900">Tổng quan hệ thống</h2>
+          <p class="text-[12.5px] text-zinc-500 mt-1">Các số liệu dưới đây được đọc trực tiếp từ database.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5">
+            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
+              <div class="text-xs text-zinc-500">Sản phẩm</div>
+              <div id="summaryProducts" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
             </div>
-            <div class="flex items-center gap-2">
-              <button onclick="simulateNewVisit()" class="text-xs font-medium bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition">
-                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-                <span>Giả lập +1 lượt xem</span>
-              </button>
+            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
+              <div class="text-xs text-zinc-500">Danh mục</div>
+              <div id="summaryCategories" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
             </div>
-          </div>
-
-          <!-- Bar Chart Container (30 Days) -->
-          <div class="pt-4">
-            <div id="chart30Days" class="h-36 sm:h-44 flex items-end gap-1 sm:gap-1.5 border-b border-zinc-200/90 pb-0.5 px-1">
-              <!-- Populated by JS -->
+            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
+              <div class="text-xs text-zinc-500">Cửa hàng</div>
+              <div id="summaryStores" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
             </div>
-            <!-- X-Axis Labels -->
-            <div class="flex justify-between items-center text-[12px] text-zinc-500 pt-2.5 px-1">
-              <span>24/09</span>
-              <span>09/10</span>
-              <span class="text-zinc-700 font-medium">Hôm nay</span>
+            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
+              <div class="text-xs text-zinc-500">Đơn hàng</div>
+              <div id="summaryOrders" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
             </div>
           </div>
         </section>
-
-        <!-- 2. Middle Grid: Hourly Views & Devices -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          
-          <!-- Left Card: Theo giờ trong ngày (7 cols) -->
-          <section class="lg:col-span-7 bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-            <div class="mb-6">
-              <h2 class="text-[15px] font-semibold text-zinc-900">Theo giờ trong ngày</h2>
-              <p class="text-[12.5px] text-zinc-500 mt-0.5">Lượt xem 30 ngày gần nhất, theo giờ Việt Nam</p>
-            </div>
-
-            <div class="pt-4">
-              <div id="chartHourly" class="h-32 sm:h-36 flex items-end gap-1 sm:gap-1.5 border-b border-zinc-200/90 pb-0.5 px-1">
-                <!-- Populated by JS -->
-              </div>
-              <div class="flex justify-between items-center text-[12px] text-zinc-500 pt-2.5 px-1">
-                <span>0h</span>
-                <span>6h</span>
-                <span>12h</span>
-                <span>18h</span>
-                <span>24h</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Right Card: Thiết bị (5 cols) -->
-          <section class="lg:col-span-5 bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-            <h2 class="text-[15px] font-semibold text-zinc-900 mb-5">Thiết bị</h2>
-
-            <div class="space-y-4">
-              <!-- Điện thoại -->
-              <div class="grid grid-cols-12 items-center gap-3 text-[13.5px]">
-                <span class="col-span-4 text-zinc-700">Điện thoại</span>
-                <div class="col-span-7 h-2 bg-zinc-200/90 rounded-full overflow-hidden">
-                  <div id="barMobile" class="h-full bg-zinc-900 rounded-full transition-all duration-500" style="width: 37.5%"></div>
-                </div>
-                <span id="countMobile" class="col-span-1 text-right font-medium text-zinc-900">9</span>
-              </div>
-
-              <!-- Máy tính bảng -->
-              <div class="grid grid-cols-12 items-center gap-3 text-[13.5px]">
-                <span class="col-span-4 text-zinc-700">Máy tính bảng</span>
-                <div class="col-span-7 h-2 bg-zinc-200/90 rounded-full overflow-hidden">
-                  <div id="barTablet" class="h-full bg-zinc-900 rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <span id="countTablet" class="col-span-1 text-right font-medium text-zinc-900">0</span>
-              </div>
-
-              <!-- Máy tính -->
-              <div class="grid grid-cols-12 items-center gap-3 text-[13.5px]">
-                <span class="col-span-4 text-zinc-700">Máy tính</span>
-                <div class="col-span-7 h-2 bg-zinc-200/90 rounded-full overflow-hidden">
-                  <div id="barDesktop" class="h-full bg-zinc-900 rounded-full transition-all duration-500" style="width: 62.5%"></div>
-                </div>
-                <span id="countDesktop" class="col-span-1 text-right font-medium text-zinc-900">15</span>
-              </div>
-            </div>
-          </section>
-
-        </div>
-
-        <!-- 3. Bottom Card: Từng lượt xem (Visit Log Table) -->
-        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-            <h2 class="text-[15px] font-semibold text-zinc-900">Từng lượt xem</h2>
-            <span class="text-xs text-zinc-500">Cập nhật theo thời gian thực · Fashion - Manager</span>
-          </div>
-
-          <div class="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
-            <table class="w-full text-left border-collapse min-w-[780px]">
-              <thead>
-                <tr class="border-b border-zinc-200/90 text-[12.5px] font-medium text-zinc-500">
-                  <th class="py-3 pr-4 font-normal w-[165px]">Lúc</th>
-                  <th class="py-3 px-4 font-normal w-[250px]">Trang vào</th>
-                  <th class="py-3 px-4 font-normal w-[240px]">IP</th>
-                  <th class="py-3 px-4 font-normal w-[220px]">Nơi</th>
-                  <th class="py-3 px-4 font-normal w-[150px]">Thiết bị</th>
-                  <th class="py-3 pl-4 font-normal">Đến từ</th>
-                </tr>
-              </thead>
-              <tbody id="visitLogBody" class="divide-y divide-zinc-200/60 text-[13px] align-top">
-                <!-- Populated by JS -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-
       </div>
 
       <!-- TAB 2: SẢN PHẨM -->
@@ -239,10 +133,6 @@
               <h2 class="text-[16px] font-semibold text-zinc-900">Sản phẩm thời trang</h2>
               <p class="text-[12.5px] text-zinc-500 mt-0.5">Quản lý danh mục quần áo, phụ kiện trong cửa hàng Fashion - Manager</p>
             </div>
-            <button onclick="showToast('Đã mở biểu mẫu thêm sản phẩm mới')" class="bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium px-3.5 py-2.5 rounded-lg flex items-center gap-2 self-start sm:self-auto">
-              <i data-lucide="plus" class="w-4 h-4"></i>
-              <span>Thêm sản phẩm</span>
-            </button>
           </div>
 
           <div class="overflow-x-auto">
@@ -274,44 +164,12 @@
         </section>
       </div>
 
-      <!-- TAB 4: THÔNG TIN CHUNG -->
+      <!-- TAB 4: CỬA HÀNG -->
       <div id="tab-settings" class="hidden space-y-5">
         <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 max-w-2xl">
-          <h2 class="text-[16px] font-semibold text-zinc-900 mb-1">Thông tin cửa hàng</h2>
-          <p class="text-[12.5px] text-zinc-500 mb-5">Thiết lập cơ bản cho website thời trang của bạn</p>
-          <div class="space-y-4 text-[13px]">
-            <div>
-              <label class="block text-zinc-600 mb-1">Tên thương hiệu</label>
-              <input type="text" value="Fashion - Manager" class="w-full px-3.5 py-2 rounded-lg bg-white border border-zinc-300 text-zinc-900 focus:outline-none focus:border-zinc-900">
-            </div>
-            <div>
-              <label class="block text-zinc-600 mb-1">Hotline liên hệ</label>
-              <input type="text" value="0988 123 456" class="w-full px-3.5 py-2 rounded-lg bg-white border border-zinc-300 text-zinc-900 focus:outline-none focus:border-zinc-900">
-            </div>
-            <div>
-              <label class="block text-zinc-600 mb-1">Địa chỉ cửa hàng</label>
-              <input type="text" value="Cầu Giấy, Hà Nội, Việt Nam" class="w-full px-3.5 py-2 rounded-lg bg-white border border-zinc-300 text-zinc-900 focus:outline-none focus:border-zinc-900">
-            </div>
-            <button onclick="showToast('Đã lưu thông tin cửa hàng!')" class="bg-zinc-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-zinc-800">Lưu thay đổi</button>
-          </div>
-        </section>
-      </div>
-
-      <!-- TAB 5: TÀI KHOẢN -->
-      <div id="tab-account" class="hidden space-y-5">
-        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 max-w-xl">
-          <h2 class="text-[16px] font-semibold text-zinc-900 mb-1">Tài khoản quản trị</h2>
-          <p class="text-[12.5px] text-zinc-500 mb-4">Quản lý quyền truy cập hệ thống Fashion - Manager</p>
-          <div class="flex items-center justify-between p-3.5 bg-white rounded-xl border border-zinc-200/80">
-            <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-full bg-zinc-900 text-white flex items-center justify-center font-semibold text-xs">FM</div>
-              <div>
-                <div class="text-sm font-medium text-zinc-900">admin@fashion-manager.vn</div>
-                <div class="text-xs text-zinc-500">Quản trị viên cấp cao</div>
-              </div>
-            </div>
-            <span class="text-xs px-2.5 py-1 bg-zinc-100 rounded-md text-zinc-700 font-medium">Đang hoạt động</span>
-          </div>
+          <h2 class="text-[16px] font-semibold text-zinc-900 mb-1">Cửa hàng</h2>
+          <p class="text-[12.5px] text-zinc-500 mb-5">Danh sách cửa hàng đọc từ bảng cua_hang.</p>
+          <div id="storesGrid" class="grid grid-cols-1 gap-3"></div>
         </section>
       </div>
 
@@ -325,9 +183,8 @@
   </div>
 
   <!-- Scripts: order matters -->
-  <script src="js/charts.js"></script>
+  <script src="config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
-

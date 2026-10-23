@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 
-from app.repositories.catalog import list_products, list_stores, list_categories
+from app.repositories.catalog import get_catalog_summary, list_products, list_stores, list_categories
 
 router = APIRouter(prefix="/api", tags=["catalog"])
 
@@ -28,9 +28,8 @@ def categories() -> dict[str, object]:
 
 @router.get("/analytics/summary")
 def analytics_summary() -> dict[str, object]:
+    summary = get_catalog_summary()
     return {
-        "total_views_30d": 24,
-        "total_products": 7,
-        "total_categories": 4,
+        **summary,
         "sync_status": "ok",
     }

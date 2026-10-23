@@ -1,126 +1,165 @@
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = window.FASHION_MANAGER_API_URL || 'http://127.0.0.1:8000';
 
-// ── Fallback demo data ────────────────────────────────────────────
-const _DEMO_PRODUCTS = [
-  { ma_san_pham: 'SP001', ten_san_pham: 'Áo khoác Denim', mau_sac: 'Xanh', kich_co: 'M', gia_ban: 490000, ma_danh_muc: 'DM01' },
-  { ma_san_pham: 'SP002', ten_san_pham: 'Áo khoác Denim', mau_sac: 'Đen', kich_co: 'L', gia_ban: 490000, ma_danh_muc: 'DM01' },
-  { ma_san_pham: 'SP003', ten_san_pham: 'Quần jeans Slim', mau_sac: 'Xanh', kich_co: 'S', gia_ban: 390000, ma_danh_muc: 'DM02' },
-  { ma_san_pham: 'SP004', ten_san_pham: 'Quần jeans Slim', mau_sac: 'Đen', kich_co: 'M', gia_ban: 390000, ma_danh_muc: 'DM02' },
-  { ma_san_pham: 'SP005', ten_san_pham: 'Váy midi hoa', mau_sac: 'Hồng', kich_co: 'M', gia_ban: 420000, ma_danh_muc: 'DM03' },
-  { ma_san_pham: 'SP006', ten_san_pham: 'Áo thun cotton', mau_sac: 'Trắng', kich_co: 'L', gia_ban: 220000, ma_danh_muc: 'DM04' },
-  { ma_san_pham: 'SP007', ten_san_pham: 'Áo thun cotton', mau_sac: 'Đen', kich_co: 'XL', gia_ban: 220000, ma_danh_muc: 'DM04' },
-];
+async function apiRequest(path) {
+  const response = await fetch(`${API_BASE}${path}`);
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_) {
+    // The error below still contains the HTTP status when the server returned non-JSON.
+  }
+  if (!response.ok) {
+    throw new Error(payload?.detail || `API trả về lỗi HTTP ${response.status}`);
+  }
+  return payload;
+}
 
-const _DEMO_CATEGORIES = [
-  { ma_danh_muc: 'DM01', ten_danh_muc: 'Áo khoác thu đông', slug: 'ao-khoac-thu-dong', so_san_pham: 12 },
-  { ma_danh_muc: 'DM02', ten_danh_muc: 'Bộ sưu tập mới', slug: 'bo-suu-tap-moi', so_san_pham: 8 },
-  { ma_danh_muc: 'DM03', ten_danh_muc: 'Áo sơ mi & kiểu', slug: 'ao-so-mi', so_san_pham: 15 },
-  { ma_danh_muc: 'DM04', ten_danh_muc: 'Quần dài', slug: 'quan-dai', so_san_pham: 10 },
-];
-
-// ── Helpers ───────────────────────────────────────────────────────
 function formatVND(amount) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 }
 
-// ── Products ──────────────────────────────────────────────────────
-async function loadProducts() {
-  let items = _DEMO_PRODUCTS;
-  try {
-    const res = await fetch(`${API_BASE}/api/products`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.items && data.items.length > 0) items = data.items;
-    }
-  } catch (_) { /* backend offline – use demo data */ }
+function renderMessage(container, message, className = 'text-zinc-500') {
+  container.innerHTML = '';
+  const messageElement = document.createElement('p');
+  messageElement.className = `py-6 text-sm ${className}`;
+  messageElement.textContent = message;
+  container.appendChild(messageElement);
+}
 
+async function loadProducts() {
   const tbody = document.getElementById('productTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '';
-  items.forEach(p => {
-    const tr = document.createElement('tr');
-    tr.className = 'hover:bg-zinc-200/30 transition-colors';
-    tr.innerHTML = `
-      <td class="py-3.5 pr-4 font-medium text-zinc-900">${p.ten_san_pham}</td>
-      <td class="py-3.5 px-4 text-zinc-600">${p.mau_sac} · ${p.kich_co}</td>
-      <td class="py-3.5 px-4 text-zinc-900">${formatVND(p.gia_ban)}</td>
-      <td class="py-3.5 pl-4 text-zinc-500 text-xs">${p.ma_danh_muc}</td>
-    `;
-    tbody.appendChild(tr);
-  });
+  renderMessage(tbody, 'Đang tải sản phẩm từ database...');
+  try {
+    const data = await apiRequest('/api/products');
+    tbody.innerHTML = '';
+    if (!data.items.length) {
+      renderMessage(tbody, 'Database chưa có sản phẩm.');
+      return;
+    }
+    data.items.forEach((product) => {
+      const row = document.createElement('tr');
+      row.className = 'hover:bg-zinc-200/30 transition-colors';
+      [
+        product.ten_san_pham,
+        `${product.mau_sac} · ${product.kich_co}`,
+        formatVND(product.gia_ban),
+        product.ma_danh_muc
+      ].forEach((value, index) => {
+        const cell = document.createElement('td');
+        cell.className = ['py-3.5 pr-4 font-medium text-zinc-900', 'py-3.5 px-4 text-zinc-600', 'py-3.5 px-4 text-zinc-900', 'py-3.5 pl-4 text-zinc-500 text-xs'][index];
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+      tbody.appendChild(row);
+    });
+  } catch (error) {
+    renderMessage(tbody, `Không thể tải sản phẩm: ${error.message}`, 'text-red-600');
+  }
 }
 
-// ── Categories ────────────────────────────────────────────────────
 async function loadCategories() {
-  let items = _DEMO_CATEGORIES;
-  try {
-    const res = await fetch(`${API_BASE}/api/categories`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.items && data.items.length > 0) items = data.items;
-    }
-  } catch (_) { /* backend offline – use demo data */ }
-
   const grid = document.getElementById('categoriesGrid');
   if (!grid) return;
-  grid.innerHTML = '';
-  items.forEach(cat => {
-    const slug = cat.slug || cat.ma_danh_muc;
-    const count = cat.so_san_pham != null ? cat.so_san_pham : '?';
-    const div = document.createElement('div');
-    div.className = 'p-4 rounded-xl bg-white border border-zinc-200/80 flex items-center justify-between';
-    div.innerHTML = `
-      <div>
-        <div class="font-medium text-sm text-zinc-900">${cat.ten_danh_muc}</div>
-        <div class="text-xs text-zinc-500 mt-0.5">/san-pham?danh-muc=${slug}</div>
-      </div>
-      <span class="text-xs font-medium bg-zinc-100 px-2.5 py-1 rounded-md text-zinc-700">${count} SP</span>
-    `;
-    grid.appendChild(div);
-  });
+  renderMessage(grid, 'Đang tải danh mục từ database...');
+  try {
+    const data = await apiRequest('/api/categories');
+    grid.innerHTML = '';
+    if (!data.items.length) {
+      renderMessage(grid, 'Database chưa có danh mục.');
+      return;
+    }
+    data.items.forEach((category) => {
+      const card = document.createElement('div');
+      card.className = 'p-4 rounded-xl bg-white border border-zinc-200/80 flex items-center justify-between';
+      const details = document.createElement('div');
+      const name = document.createElement('div');
+      name.className = 'font-medium text-sm text-zinc-900';
+      name.textContent = category.ten_danh_muc;
+      const code = document.createElement('div');
+      code.className = 'text-xs text-zinc-500 mt-0.5';
+      code.textContent = category.ma_danh_muc;
+      details.append(name, code);
+      const count = document.createElement('span');
+      count.className = 'text-xs font-medium bg-zinc-100 px-2.5 py-1 rounded-md text-zinc-700';
+      count.textContent = `${category.so_san_pham} SP`;
+      card.append(details, count);
+      grid.appendChild(card);
+    });
+  } catch (error) {
+    renderMessage(grid, `Không thể tải danh mục: ${error.message}`, 'text-red-600');
+  }
 }
 
-// ── Backend Health / Sync ─────────────────────────────────────────
+async function loadAnalyticsSummary() {
+  try {
+    const summary = await apiRequest('/api/analytics/summary');
+    const products = document.getElementById('summaryProducts');
+    const categories = document.getElementById('summaryCategories');
+    const stores = document.getElementById('summaryStores');
+    const orders = document.getElementById('summaryOrders');
+    if (products) products.textContent = `${summary.total_products} sản phẩm trong database`;
+    if (categories) categories.textContent = `${summary.total_categories} danh mục trong database`;
+    if (stores) stores.textContent = `${summary.total_stores} cửa hàng trong database`;
+    if (orders) orders.textContent = `${summary.total_orders} đơn hàng trong database`;
+  } catch (error) {
+    showToast(`Không thể tải thống kê database: ${error.message}`);
+  }
+
+  async function loadStores() {
+    const container = document.getElementById('storesGrid');
+    if (!container) return;
+    renderMessage(container, 'Đang tải cửa hàng từ database...');
+    try {
+      const data = await apiRequest('/api/stores');
+      container.innerHTML = '';
+      if (!data.items.length) {
+        renderMessage(container, 'Database chưa có cửa hàng.');
+        return;
+      }
+      data.items.forEach((store) => {
+        const card = document.createElement('article');
+        card.className = 'rounded-xl bg-white border border-zinc-200/80 p-4';
+        const name = document.createElement('h3');
+        name.className = 'font-medium text-sm text-zinc-900';
+        name.textContent = store.ten_cua_hang;
+        const details = document.createElement('p');
+        details.className = 'text-xs text-zinc-500 mt-2 leading-relaxed';
+        details.textContent = `${store.ma_cua_hang} · ${store.dia_chi} · ${store.so_dien_thoai}`;
+        card.append(name, details);
+        container.appendChild(card);
+      });
+    } catch (error) {
+      renderMessage(container, `Không thể tải cửa hàng: ${error.message}`, 'text-red-600');
+    }
+  }
+}
+
 async function checkBackendHealth() {
   const syncDot = document.getElementById('syncDot');
   const syncTitle = document.getElementById('syncTitle');
   const syncDesc = document.getElementById('syncDesc');
   try {
-    const res = await fetch(`${API_BASE}/health`);
-    if (res.ok) {
-      if (syncDot) syncDot.className = 'w-2 h-2 rounded-full bg-emerald-600 inline-block';
-      if (syncTitle) syncTitle.textContent = 'Backend đang kết nối';
-      if (syncDesc) syncDesc.textContent = 'API đang hoạt động. Dữ liệu được lấy từ server.';
-    } else {
-      throw new Error('not ok');
-    }
-  } catch (_) {
-    if (syncDot) syncDot.className = 'w-2 h-2 rounded-full bg-zinc-400 inline-block';
-    if (syncTitle) syncTitle.textContent = 'Chế độ Demo';
-    if (syncDesc) syncDesc.textContent = 'Backend offline. Hiển thị dữ liệu mẫu.';
+    await apiRequest('/api/health/db');
+    syncDot.className = 'w-2 h-2 rounded-full bg-emerald-600 inline-block';
+    syncTitle.textContent = 'Database đang kết nối';
+    syncDesc.textContent = 'Dữ liệu trên trang được đọc trực tiếp từ MySQL.';
+  } catch (error) {
+    syncDot.className = 'w-2 h-2 rounded-full bg-red-600 inline-block';
+    syncTitle.textContent = 'Database chưa kết nối';
+    syncDesc.textContent = error.message;
   }
 }
 
 async function triggerSync() {
   const btn = document.getElementById('syncBtn');
   const btnText = document.getElementById('syncBtnText');
-  const syncDot = document.getElementById('syncDot');
-  const syncTitle = document.getElementById('syncTitle');
-
   btn.disabled = true;
   btn.classList.add('opacity-80');
-  btnText.textContent = 'Đang đồng bộ...';
-  syncDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-ping inline-block';
-
-  await checkBackendHealth();
-  await loadProducts();
-  await loadCategories();
-
-  setTimeout(() => {
-    btn.disabled = false;
-    btn.classList.remove('opacity-80');
-    btnText.textContent = 'Đồng bộ dữ liệu';
-    showToast('Đồng bộ dữ liệu cửa hàng thời trang thành công!');
-  }, 800);
+  btnText.textContent = 'Đang tải dữ liệu...';
+  await Promise.all([checkBackendHealth(), loadProducts(), loadCategories(), loadStores(), loadAnalyticsSummary()]);
+  btn.disabled = false;
+  btn.classList.remove('opacity-80');
+  btnText.textContent = 'Tải lại dữ liệu';
+  showToast('Đã tải lại dữ liệu từ database.');
 }
-

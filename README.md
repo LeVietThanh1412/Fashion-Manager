@@ -22,5 +22,9 @@ sql/tests/verify_seed.sql
 ```
 
 `01_create_database.sql` có `DROP DATABASE` và chỉ được dùng cho demo/test. Không chạy trên
-database thật. Xem `.env.example` để cấu hình backend. Frontend chưa được triển khai; đang
-chờ template theo [frontend handoff](plans/08-frontend-handoff.md).
+database thật. Xem `.env.example` để cấu hình backend. Frontend static nằm trong
+`frontend/` và gọi các endpoint backend để đọc dữ liệu MySQL; xem
+[frontend/README.md](frontend/README.md) để chạy giao diện.
+
+Không commit `.env` hoặc thông tin đăng nhập MySQL. GitHub Actions đọc
+`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` từ Repository Secrets.
