@@ -35,7 +35,7 @@
 
   <!-- LEFT SIDEBAR -->
   <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-[235px] bg-[#efefed] border-r border-zinc-200/90 flex flex-col justify-between p-3.5 transition-transform duration-200 ease-in-out -translate-x-full md:translate-x-0 shrink-0">
-    
+
     <!-- Top Brand & Navigation -->
     <div>
       <!-- Brand Header -->
@@ -99,31 +99,124 @@
   <main class="flex-1 h-full overflow-y-auto px-4 sm:px-7 py-5 md:py-6">
     <div class="max-w-[1180px] mx-auto space-y-5">
 
-      <!-- TAB 1: TỔNG QUAN DATABASE -->
+      <!-- TAB 1: ANALYTICS / TRANG CHỦ (Default, matches screenshot) -->
       <div id="tab-analytics" class="space-y-5">
-        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6">
-          <h2 class="text-[16px] font-semibold text-zinc-900">Tổng quan hệ thống</h2>
-          <p class="text-[12.5px] text-zinc-500 mt-1">Các số liệu dưới đây được đọc trực tiếp từ database.</p>
-          <p id="summaryStatus" role="status" class="text-xs text-zinc-500 mt-2">Đang tải số liệu...</p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5">
-            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
-              <div class="text-xs text-zinc-500">Sản phẩm</div>
-              <div id="summaryProducts" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
+
+        <!-- 1. Top Card: 30 Days Views Bar Chart -->
+        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div class="flex items-center justify-between gap-3 mb-6">
+            <div>
+              <h2 class="text-[15px] font-semibold text-zinc-900">30 ngày gần nhất</h2>
+              <p id="visitsTotal" class="text-[12.5px] text-zinc-500 mt-0.5">Đang tải lượt xem...</p>
             </div>
-            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
-              <div class="text-xs text-zinc-500">Danh mục</div>
-              <div id="summaryCategories" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
+            <div class="flex items-center gap-2">
+              <button onclick="loadVisitAnalytics()" class="text-xs font-medium bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-2xs transition">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Tải lại</span>
+              </button>
             </div>
-            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
-              <div class="text-xs text-zinc-500">Cửa hàng</div>
-              <div id="summaryStores" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
+          </div>
+
+          <!-- Bar Chart Container (30 Days) -->
+          <div class="pt-4">
+            <div id="chart30Days" class="h-36 sm:h-44 flex items-end gap-1 sm:gap-1.5 border-b border-zinc-200/90 pb-0.5 px-1">
+              <!-- Populated by JS -->
             </div>
-            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
-              <div class="text-xs text-zinc-500">Đơn hàng</div>
-              <div id="summaryOrders" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
+            <!-- X-Axis Labels -->
+            <div class="flex justify-between items-center text-[12px] text-zinc-500 pt-2.5 px-1">
+              <span id="chartFirstDate">—</span>
+              <span id="chartMiddleDate">—</span>
+              <span class="text-zinc-700 font-medium">Hôm nay</span>
             </div>
           </div>
         </section>
+
+        <!-- 2. Middle Grid: Hourly Views & Devices -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+          <!-- Left Card: Theo giờ trong ngày (7 cols) -->
+          <section class="lg:col-span-7 bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <div class="mb-6">
+              <h2 class="text-[15px] font-semibold text-zinc-900">Theo giờ trong ngày</h2>
+              <p class="text-[12.5px] text-zinc-500 mt-0.5">Lượt xem 30 ngày gần nhất, theo giờ Việt Nam</p>
+            </div>
+
+            <div class="pt-4">
+              <div id="chartHourly" class="h-32 sm:h-36 flex items-end gap-1 sm:gap-1.5 border-b border-zinc-200/90 pb-0.5 px-1">
+                <!-- Populated by JS -->
+              </div>
+              <div class="flex justify-between items-center text-[12px] text-zinc-500 pt-2.5 px-1">
+                <span>0h</span>
+                <span>6h</span>
+                <span>12h</span>
+                <span>18h</span>
+                <span>24h</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Right Card: Thiết bị (5 cols) -->
+          <section class="lg:col-span-5 bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <h2 class="text-[15px] font-semibold text-zinc-900 mb-5">Thiết bị</h2>
+
+            <div class="space-y-4">
+              <!-- Điện thoại -->
+              <div class="grid grid-cols-12 items-center gap-3 text-[13.5px]">
+                <span class="col-span-4 text-zinc-700">Điện thoại</span>
+                <div class="col-span-7 h-2 bg-zinc-200/90 rounded-full overflow-hidden">
+                  <div id="barMobile" class="h-full bg-zinc-900 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <span id="countMobile" class="col-span-1 text-right font-medium text-zinc-900">—</span>
+              </div>
+
+              <!-- Máy tính bảng -->
+              <div class="grid grid-cols-12 items-center gap-3 text-[13.5px]">
+                <span class="col-span-4 text-zinc-700">Máy tính bảng</span>
+                <div class="col-span-7 h-2 bg-zinc-200/90 rounded-full overflow-hidden">
+                  <div id="barTablet" class="h-full bg-zinc-900 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <span id="countTablet" class="col-span-1 text-right font-medium text-zinc-900">—</span>
+              </div>
+
+              <!-- Máy tính -->
+              <div class="grid grid-cols-12 items-center gap-3 text-[13.5px]">
+                <span class="col-span-4 text-zinc-700">Máy tính</span>
+                <div class="col-span-7 h-2 bg-zinc-200/90 rounded-full overflow-hidden">
+                  <div id="barDesktop" class="h-full bg-zinc-900 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <span id="countDesktop" class="col-span-1 text-right font-medium text-zinc-900">—</span>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- 3. Bottom Card: Từng lượt xem (Visit Log Table) -->
+        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <h2 class="text-[15px] font-semibold text-zinc-900">Từng lượt xem</h2>
+            <span id="visitsStatus" role="status" class="text-xs text-zinc-500">Đang tải dữ liệu...</span>
+          </div>
+
+          <div class="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+            <table class="w-full text-left border-collapse min-w-[780px]">
+              <thead>
+                <tr class="border-b border-zinc-200/90 text-[12.5px] font-medium text-zinc-500">
+                  <th class="py-3 pr-4 font-normal w-[165px]">Lúc</th>
+                  <th class="py-3 px-4 font-normal w-[250px]">Trang vào</th>
+                  <th class="py-3 px-4 font-normal w-[240px]">IP (ẩn một phần)</th>
+                  <th class="py-3 px-4 font-normal w-[220px]">Nơi</th>
+                  <th class="py-3 px-4 font-normal w-[150px]">Thiết bị</th>
+                  <th class="py-3 pl-4 font-normal">Đến từ</th>
+                </tr>
+              </thead>
+              <tbody id="visitLogBody" class="divide-y divide-zinc-200/60 text-[13px] align-top">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
       </div>
 
       <!-- TAB 2: SẢN PHẨM -->
@@ -177,6 +270,34 @@
           <p class="text-[12.5px] text-zinc-500 mb-5">Danh sách cửa hàng đọc từ bảng cua_hang.</p>
           <div id="storesGrid" class="grid grid-cols-1 gap-3"></div>
         </section>
+      <!-- TAB 1: TỔNG QUAN DATABASE -->
+      <div id="catalogSummary" class="space-y-5">
+        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6">
+          <h2 class="text-[16px] font-semibold text-zinc-900">Tổng quan hệ thống</h2>
+          <p class="text-[12.5px] text-zinc-500 mt-1">Các số liệu dưới đây được đọc trực tiếp từ database.</p>
+          <p id="summaryStatus" role="status" class="text-xs text-zinc-500 mt-2">Đang tải số liệu...</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5">
+            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
+              <div class="text-xs text-zinc-500">Sản phẩm</div>
+              <div id="summaryProducts" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
+            </div>
+            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
+              <div class="text-xs text-zinc-500">Danh mục</div>
+              <div id="summaryCategories" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
+            </div>
+            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
+              <div class="text-xs text-zinc-500">Cửa hàng</div>
+              <div id="summaryStores" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
+            </div>
+            <div class="rounded-xl bg-white border border-zinc-200/80 p-4">
+              <div class="text-xs text-zinc-500">Đơn hàng</div>
+              <div id="summaryOrders" class="mt-2 text-2xl font-semibold text-zinc-900">—</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+
       </div>
 
     </div>
@@ -191,6 +312,7 @@
   <!-- Scripts: order matters -->
   <script src="config.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/charts.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

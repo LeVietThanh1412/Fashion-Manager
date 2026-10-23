@@ -16,6 +16,8 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     node --check frontend/js/app.js
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    node --check frontend/js/charts.js
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     node --test frontend/tests/api.test.cjs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 } else {

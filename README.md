@@ -1,5 +1,7 @@
 ﻿# Fashion Manager - BTL Cơ sở dữ liệu
 
+**Chạy và deploy:** xem [DEPLOYMENT.md](DEPLOYMENT.md) để chạy frontend + API với Aiven thật tại máy, kiểm tra kết nối, và deploy frontend lên GitHub Pages bằng Actions, backend lên Render.
+
 Đây là bài tập lớn quản lý chuỗi cửa hàng thời trang dùng MySQL, SQL tự viết và backend
 Python không ORM. Bắt đầu đọc [plans/README.md](plans/README.md), sau đó xem
 [plans/PROGRESS.md](plans/PROGRESS.md).

@@ -25,8 +25,8 @@ function switchTab(tabId) {
   // Reload data when switching to relevant tabs
   if (tabId === 'products') loadProducts();
   if (tabId === 'categories') loadCategories();
-  if (tabId === 'settings') loadStores();
-  if (tabId === 'analytics') loadAnalyticsSummary();
+  if (tabId === 'settings') { loadStores(); loadAnalyticsSummary(); }
+  if (tabId === 'analytics') loadVisitAnalytics();
 }
 
 // ── Mobile Menu ───────────────────────────────────────────────────
@@ -51,10 +51,15 @@ function showToast(message) {
 }
 
 // ── Init ──────────────────────────────────────────────────────────
-window.onload = function () {
+window.onload = async function () {
   if (window.lucide) lucide.createIcons();
 
   document.getElementById('mobileMenuBtn').addEventListener('click', toggleMobileMenu);
 
-  return triggerSync(false);
+  const recorded = await recordPageVisit();
+  const loaded = await triggerSync(false);
+  if (!recorded && loaded) {
+    document.getElementById('visitsStatus').textContent += ' · Lượt mở trang này chưa được ghi nhận';
+  }
+  return loaded;
 };

@@ -7,6 +7,7 @@ import uvicorn
 from app.core.config import settings
 from app.db.connection import connection
 from app.routers.catalog import router as catalog_router
+from app.routers.analytics import router as analytics_router
 from app.routers.orders import router as orders_router
 from app.routers.query_explorer import router as query_explorer_router
 
@@ -19,6 +20,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(catalog_router)
+app.include_router(analytics_router)
 app.include_router(orders_router)
 app.include_router(query_explorer_router)
 

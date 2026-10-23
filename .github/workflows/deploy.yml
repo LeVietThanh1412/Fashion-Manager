@@ -39,6 +39,7 @@ jobs:
         run: |
           node --check frontend/js/api.js
           node --check frontend/js/app.js
+          node --check frontend/js/charts.js
           node --test frontend/tests/*.test.cjs
 
   build:

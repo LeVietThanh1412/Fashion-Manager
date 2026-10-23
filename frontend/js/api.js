@@ -2,11 +2,11 @@ const API_BASE = (window.FASHION_MANAGER_API_URL || '').replace(/\/+$/, '');
 let productPage = 0;
 const PRODUCT_PAGE_SIZE = 20;
 
-async function apiRequest(path) {
+async function apiRequest(path, options = {}) {
   if (!API_BASE) throw new Error('Chưa cấu hình URL backend trong config.js.');
   let response;
   try {
-    response = await fetch(`${API_BASE}${path}`, { signal: AbortSignal.timeout(60000) });
+    response = await fetch(`${API_BASE}${path}`, { ...options, signal: AbortSignal.timeout(60000) });
   } catch (error) {
     throw new Error(error.name === 'TimeoutError'
       ? 'Backend phản hồi quá chậm. Hãy thử tải lại.'
@@ -34,7 +34,7 @@ function renderMessage(container, message, className = 'text-zinc-500') {
   const element = document.createElement(isTable ? 'tr' : 'p');
   const content = isTable ? document.createElement('td') : element;
   if (isTable) {
-    content.colSpan = 4;
+    content.colSpan = container.id === 'visitLogBody' ? 6 : 4;
     element.appendChild(content);
   }
   content.className = `py-6 text-sm ${className}`;
@@ -180,7 +180,7 @@ async function triggerSync(notify = true) {
   button.disabled = true;
   text.textContent = 'Đang tải dữ liệu...';
   try {
-    const results = await Promise.allSettled([checkBackendHealth(), loadProducts(), loadCategories(), loadStores(), loadAnalyticsSummary()]);
+    const results = await Promise.allSettled([checkBackendHealth(), loadProducts(), loadCategories(), loadStores(), loadAnalyticsSummary(), loadVisitAnalytics()]);
     const success = results.every(result => result.status === 'fulfilled' && result.value === true);
     if (notify) showToast(success ? 'Đã tải lại dữ liệu từ database.' : 'Tải dữ liệu chưa hoàn tất. Xem lỗi tại từng mục.');
     return success;

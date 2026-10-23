@@ -9,10 +9,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def build_config(api_url: str) -> str:
-    url = api_url.strip().rstrip('/')
+    url = api_url.strip().strip("\"'").strip().rstrip('/')
+    if not url:
+        raise ValueError('FRONTEND_API_URL is empty. Set this GitHub Actions Secret or Variable to your deployed FastAPI HTTPS URL.')
     parsed = urlsplit(url)
     if parsed.scheme != 'https' or not parsed.hostname:
-        raise ValueError('FRONTEND_API_URL must be the public HTTPS backend URL.')
+        raise ValueError('FRONTEND_API_URL must be the public HTTPS backend URL, e.g. https://your-api.onrender.com. A MySQL hostname, localhost or GitHub Pages URL cannot run FastAPI.')
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ValueError('FRONTEND_API_URL must not contain credentials, query parameters or a fragment.')
     hostname = parsed.hostname.lower()
