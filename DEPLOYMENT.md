@@ -74,7 +74,6 @@ Port `15000` ở trên chỉ là ví dụ. `DB_NAME` phải là database đã ch
 Không tự chạy các file có `DROP DATABASE` lên Aiven đang có dữ liệu.
 
 ```powershell
-py -3.13 scripts/init_analytics.py
 py -3.13 scripts/verify_db.py
 py -3.13 scripts/dev.py
 ```
@@ -84,22 +83,18 @@ Ctrl+C dừng cả hai server và khôi phục `frontend/config.js` trước đ�
 Nếu cổng 8000 đang dùng: `py -3.13 scripts/dev.py --api-port 8010`.
 Script không tự seed dữ liệu. Các số tổng quan phản ánh cả dữ liệu seed đã nhập trước đó nếu DB đang chứa chúng.
 
-### Dashboard lượt truy cập
+### Dashboard quản lý cửa hàng
 
-Trang chủ giữ bố cục biểu đồ 30 ngày, biểu đồ theo giờ Việt Nam, thiết bị và bảng từng lượt xem.
-Trước lần chạy đầu tiên sau cập nhật này, tạo bảng thống kê trong database đã cấu hình:
+Trang chủ giữ bố cục biểu đồ, phân bố và bảng chi tiết nhưng dùng dữ liệu nghiệp vụ:
 
-```powershell
-py -3.13 scripts/init_analytics.py
-```
+- 30 ngày gần nhất: số đơn hàng theo ngày và tổng giá trị `SUM(so_luong * don_gia_ban)`.
+- Theo giờ: số đơn trong 30 ngày, đọc `ngay_tao_don` theo giờ địa phương Việt Nam.
+- Sản phẩm theo danh mục: đếm sản phẩm thực tế, không thống kê điện thoại/máy tính.
+- Đơn hàng gần nhất: tối đa 50 đơn trên toàn bộ thời gian, kèm mã khách, cửa hàng, số lượng và tổng giá trị.
 
-Lệnh chỉ `CREATE TABLE IF NOT EXISTS luot_truy_cap_web`, không xóa/reset bảng nghiệp vụ và không tạo lượt xem mẫu.
-Mỗi lần mở hoặc reload trang gửi một lượt xem thật lên API. Nút Tải lại dữ liệu và chuyển tab chỉ đọc lại thống kê, không cộng lượt.
-Các ngày chưa có lượt xem hiển thị 0 sau khi truy vấn DB thành công; lỗi kết nối hiển thị lỗi thay vì số 0 giả.
-IP được ẩn một phần trước khi lưu. Referrer chỉ lưu hostname, không lưu query/token.
-Chưa tích hợp nguồn định vị IP nên cột Nơi hiển thị Chưa xác định.
-Tổng lượt xem là tổng lượt tải trang trong 30 ngày, không phải số người dùng duy nhất.
-Khi deploy Render, chạy migration một lần bằng cấu hình Aiven tương ứng trước khi dùng dashboard; CI không tự tạo hoặc seed bảng.
+API `/api/analytics/sales` chỉ đọc các bảng nghiệp vụ sẵn có. Không tạo lượt xem, không thu thập thiết bị/IP.
+Khi chưa có đơn trong khoảng 30 ngày thì biểu đồ bằng 0; các đơn cũ vẫn có trong bảng gần nhất.
+Khi DB lỗi, giao diện hiển thị lỗi thay vì thay bằng số 0 hoặc dữ liệu mẫu.
 
 Mở terminal thứ hai để kiểm tra:
 
@@ -172,3 +167,9 @@ py -3.13 scripts/smoke_api.py --url https://your-api.onrender.com --origin https
 ```
 
 Tài liệu nền tảng: [GitHub Pages custom workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages), [Render FastAPI](https://render.com/docs/deploy-fastapi), [Aiven MySQL](https://aiven.io/docs/products/mysql/howto/connect-with-python).
+
+## Vị trí nhập biến môi trường
+
+Biến `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` phải có trên **Render → service Fashion-Manager → Environment → Add from .env**. Dùng nội dung `.env.render`, rồi **Save, rebuild, and deploy**. GitHub Secrets không tự được chuyển sang Render.
+
+`frontend/config.js` hiện được commit với URL API công khai `https://fashion-manager.onrender.com`. Workflow vẫn tạo lại file từ `FRONTEND_API_URL`, kiểm tra cú pháp trước khi upload và kiểm tra HTTP sau deploy. `.env` và `.env.render` luôn được giữ ngoài Git.

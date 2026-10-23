@@ -73,7 +73,7 @@ function renderSalesAnalytics(data) {
     tbody.appendChild(row);
   });
   const now = new Date().toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-  document.getElementById('salesStatus').textContent = `${data.orders.length} đơn gần nhất · Cập nhật ${now}`;
+  document.getElementById('salesStatus').textContent = `${data.orders.length} đơn gần nhất, toàn bộ thời gian · Cập nhật ${now}`;
 }
 
 async function loadSalesAnalytics() {

@@ -10,7 +10,7 @@ from app.db.connection import connection
 
 TABLES = (
     'danh_muc', 'cua_hang', 'san_pham', 'nhan_vien', 'phan_phoi',
-    'chi_tiet_phan_phoi', 'khach_hang', 'don_hang', 'chi_tiet_don_hang', 'luot_truy_cap_web',
+    'chi_tiet_phan_phoi', 'khach_hang', 'don_hang', 'chi_tiet_don_hang',
 )
 
 

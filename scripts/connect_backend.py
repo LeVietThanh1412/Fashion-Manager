@@ -58,7 +58,7 @@ def github_request(token: str, path: str, method: str = 'GET', payload: dict | N
 
 
 def verify_api(url: str, origin: str) -> None:
-    for path in ('/health', '/api/health/db', '/api/products', '/api/categories', '/api/stores', '/api/analytics/summary', '/api/analytics/visits'):
+    for path in ('/health', '/api/health/db', '/api/products', '/api/categories', '/api/stores', '/api/analytics/summary', '/api/analytics/sales'):
         try:
             with urlopen(Request(url + path, headers={'Origin': origin}), timeout=90) as response:
                 data = json.load(response)
@@ -66,8 +66,8 @@ def verify_api(url: str, origin: str) -> None:
                     raise ValueError(f'Backend CORS must allow {origin}. Update APP_CORS_ORIGINS on Render.')
                 if path in ('/health', '/api/health/db') and data.get('status') != 'ok':
                     raise ValueError(f'Backend {path} is not ready.')
-                if path == '/api/analytics/visits' and 'daily' not in data:
-                    raise ValueError('The deployed backend is missing web analytics.')
+                if path == '/api/analytics/sales' and 'daily' not in data:
+                    raise ValueError('The deployed backend is missing sales analytics.')
         except (HTTPError, URLError) as exc:
             raise ValueError(f'Backend {path} is unavailable ({type(exc).__name__}). Check Render deployment and database settings.') from None
         print(f'PASS: {path}')

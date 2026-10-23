@@ -8,8 +8,9 @@ Frontend là HTML/CSS/JavaScript tĩnh. `index.html` gọi `js/api.js` và `js/a
 
 Sản phẩm, danh mục, số sản phẩm mỗi danh mục, cửa hàng và bốn số tổng quan đều lấy từ API/MySQL.
 Không có mảng dữ liệu mẫu hoặc biểu đồ giả. Phân trang sản phẩm dùng `limit`/`offset` của API.
-Trang chủ hiển thị lượt truy cập thật từ `luot_truy_cap_web`; chạy `py -3.13 scripts/init_analytics.py` một lần để tạo bảng.
-`js/charts.js` vẽ biểu đồ và bảng lượt xem từ API; bốn số tổng quan nghiệp vụ nằm trong Thông tin chung.
+Trang chủ thống kê đơn hàng và tổng giá trị đơn trong 30 ngày, đơn hàng theo giờ, phân bố sản phẩm theo danh mục và 50 đơn gần nhất.
+`js/charts.js` lấy dữ liệu từ `/api/analytics/sales`, đọc các bảng nghiệp vụ hiện có; không cần bảng thống kê truy cập.
+Không thu thập thiết bị/IP khi mở trang. Bốn số tổng quan nghiệp vụ nằm trong Thông tin chung.
 Khi tải lỗi, trang hiển thị lỗi, xóa số tổng quan cũ và không thông báo đồng bộ thành công.
 
 Chạy từ thư mục gốc bằng Python 3.12/3.13:

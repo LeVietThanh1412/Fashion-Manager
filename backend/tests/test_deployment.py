@@ -71,6 +71,8 @@ def test_database_failure_returns_error_without_fake_products(monkeypatch):
     monkeypatch.setattr(main, 'connection', unavailable)
     monkeypatch.setattr(catalog, 'list_products', unavailable)
     with TestClient(app) as client:
+        assert client.get('/').json()['service'] == 'Fashion Manager API'
+        assert client.head('/').status_code == 200
         assert client.get('/health').json() == {'status': 'ok'}
         for path in ('/api/health/db', '/api/products'):
             response = client.get(path)

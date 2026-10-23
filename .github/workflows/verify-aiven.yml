@@ -57,7 +57,7 @@ jobs:
           from fastapi.testclient import TestClient
           from main import app
           with TestClient(app) as client:
-              for path in ('/health', '/api/health/db', '/api/products', '/api/categories', '/api/stores', '/api/analytics/summary', '/api/analytics/visits'):
+              for path in ('/health', '/api/health/db', '/api/products', '/api/categories', '/api/stores', '/api/analytics/summary', '/api/analytics/sales'):
                   response = client.get(path)
                   response.raise_for_status()
                   print(f'PASS: {path}')

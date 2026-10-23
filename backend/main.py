@@ -33,6 +33,11 @@ async def mysql_error_handler(request, exc):
     )
 
 
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+def api_index() -> dict[str, str]:
+    return {"service": "Fashion Manager API", "docs": "/docs", "health": "/health", "database_health": "/api/health/db"}
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}

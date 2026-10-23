@@ -11,7 +11,7 @@ def main() -> int:
     parser.add_argument('--origin', default='http://127.0.0.1:8080')
     args = parser.parse_args()
     try:
-        for path in ('/health', '/api/health/db', '/api/products?limit=100', '/api/categories', '/api/stores', '/api/analytics/summary', '/api/analytics/visits'):
+        for path in ('/health', '/api/health/db', '/api/products?limit=100', '/api/categories', '/api/stores', '/api/analytics/summary', '/api/analytics/sales'):
             request = Request(args.url.rstrip('/') + path, headers={'Origin': args.origin})
             with urlopen(request, timeout=90) as response:
                 data = json.load(response)

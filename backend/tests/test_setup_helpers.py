@@ -38,4 +38,4 @@ def test_backend_connection_checks_all_real_endpoints(monkeypatch):
     monkeypatch.setattr(connect_backend, 'urlopen', response)
     connect_backend.verify_api('https://api.example.com', 'https://thanhtech.cloud')
     assert len(calls) == 7
-    assert calls[-1].endswith('/api/analytics/visits')
+    assert calls[-1].endswith('/api/analytics/sales')
