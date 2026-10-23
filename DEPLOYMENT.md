@@ -4,6 +4,47 @@ Luồng dữ liệu: trình duyệt → frontend GitHub Pages → FastAPI chạy
 GitHub Actions chạy test và đưa file tĩnh lên Pages; runner không phải máy chủ backend lâu dài.
 GitHub Secrets chỉ cấp biến cho Actions, không tự cấp biến cho Render.
 
+## Setup tự động cho repository này
+
+Tài khoản chủ repo đã được xác nhận có GitHub Pro, nên GitHub Pages dùng được với repo private.
+Giữ nguyên visibility theo lựa chọn của bạn. Public/private không gây lỗi DNS của MySQL.
+Pages đã chuyển sang Source **GitHub Actions**; secrets DB đã được đồng bộ từ kết nối Aiven đang hoạt động.
+Workflow Aiven đã chạy thành công sau khi đồng bộ.
+
+Phần cần thực hiện một lần là tạo dịch vụ FastAPI trên Render. Có hai cách:
+
+- **New → Blueprint**: kết nối repo và dùng `render.yaml`; Render tự đọc runtime, build/start command, gói Free và CORS.
+- **New → Web Service** như màn hình hiện tại: điền các giá trị dưới đây và chọn instance **Free**.
+
+```text
+Language: Python 3
+Branch: main
+Root Directory: để trống
+Build Command: pip install -r backend/requirements.txt
+Start Command: python -m uvicorn main:app --app-dir backend --host 0.0.0.0 --port $PORT
+Health Check Path: /health
+Instance Type: Free
+```
+
+Đã tạo sẵn `.env.render` tại thư mục gốc, chứa thông tin Aiven đã kiểm tra và CORS cho domain Pages thực tế `https://thanhtech.cloud`.
+Trong Render chọn **Add from .env** và dùng nội dung file này. File đã được `.gitignore` bảo vệ, không đưa lên GitHub.
+Có thể tạo lại bằng `py -3.13 scripts/prepare_render_env.py`.
+
+Sau khi Render báo Live và cấp URL HTTPS, tại máy chạy:
+
+```powershell
+# Dependency riêng cho script setup; không cần thêm vào backend production.
+py -3.13 -m pip install PyNaCl
+py -3.13 scripts/connect_backend.py https://URL-THAT-CUA-BAN.onrender.com
+```
+
+Script xác minh 7 endpoint thật và CORS, cập nhật secret `FRONTEND_API_URL`, đồng bộ Variable cùng tên nếu đang tồn tại, rồi tự chạy workflow deploy frontend.
+Script dùng phiên GitHub của Git Credential Manager trên máy (hoặc `GH_TOKEN` trong môi trường); không in token hoặc mật khẩu.
+Không thay URL ví dụ vào GitHub Secret: phải dùng URL dịch vụ Render đã triển khai thành công.
+
+URL Pages của repo hiện được GitHub trả về là `https://thanhtech.cloud/Fashion-Manager/`.
+Vì vậy origin backend cần cho phép `https://thanhtech.cloud`; Blueprint và file `.env.render` đã bao gồm cả domain này và origin GitHub mặc định.
+
 ## 1. Tự chạy với database Aiven thật
 
 Dùng Python 3.12 hoặc 3.13. Trên máy hiện tại dùng `py -3.13`; `py -3` đang trỏ tới Python 3.8.

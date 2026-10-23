@@ -6,6 +6,7 @@ report/images
 logs/
 
 .env
+.env.render
 frontend/config.js
 
 .vscode
