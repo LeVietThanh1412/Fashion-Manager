@@ -52,10 +52,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: Generate public API configuration
         env:
           FRONTEND_API_URL: ${{ vars.FRONTEND_API_URL || secrets.FRONTEND_API_URL }}
         run: python scripts/build_frontend_config.py
+      - name: Validate config.js before publishing
+        run: |
+          test -s frontend/config.js
+          node --check frontend/config.js
+          node - <<'JS'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const context = { window: {} };
+          vm.runInNewContext(fs.readFileSync('frontend/config.js', 'utf8'), context);
+          const url = new URL(context.window.FASHION_MANAGER_API_URL);
+          if (url.protocol !== 'https:') throw new Error('Published API URL must use HTTPS');
+          if (!fs.readFileSync('frontend/index.html', 'utf8').includes('src="config.js"')) {
+            throw new Error('Frontend must load the generated config.js');
+          }
+          console.log('PASS: config.js is valid and included in the frontend artifact.');
+          JS
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
@@ -75,3 +94,8 @@ jobs:
       - name: Deploy frontend
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify published config.js is accessible
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 "${PAGE_URL%/}/config.js" | python -c "import sys; content=sys.stdin.read(); assert 'window.FASHION_MANAGER_API_URL' in content, 'Published config.js is missing'"

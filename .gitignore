@@ -7,7 +7,6 @@ logs/
 
 .env
 .env.render
-frontend/config.js
 
 .vscode
 .pytest_cache

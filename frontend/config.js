@@ -1,0 +1,1 @@
+window.FASHION_MANAGER_API_URL = "http://127.0.0.1:8010";
