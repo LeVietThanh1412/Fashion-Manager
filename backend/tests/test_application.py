@@ -61,16 +61,19 @@ def test_role_scope(actor,expected):
 def test_health_and_missing_employee_do_not_require_database():
     with TestClient(app) as client:
         assert client.get('/health').status_code == 200
-        assert client.get('/api/orders').status_code == 401
+        assert client.post('/api/orders', json={
+            'customer_id': 'KH001',
+            'details': [{'product_id': 'SP001', 'quantity': 1}],
+        }).status_code == 401
         assert client.get('/').status_code == 200
 
 
-def test_queries_have_fifty_distinct_ids_and_statements():
+def test_queries_have_at_least_fifty_distinct_ids_and_statements():
     registry=load_academic_queries(ROOT/'sql'/'query')
-    assert len(registry)==50
-    assert len({query.sql for query in registry.values()})==50
+    assert len(registry)>=50
+    assert len({query.sql for query in registry.values()})==len(registry)
     for member in range(1,6):
-        assert sum(key.startswith(f'M{member:02}_') for key in registry)==10
+        assert sum(key.startswith(f'M{member:02}_') for key in registry)>=10
 
 
 def test_no_redundant_current_price_or_detail_identifier_in_schema():

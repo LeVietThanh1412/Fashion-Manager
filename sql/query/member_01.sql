@@ -103,4 +103,19 @@ where dt.doanh_thu_nv = (
 order by dt.ma_cua_hang;
 
 -- xếp hạng doanh thu các cửa hàng khu vực miền Bắc
+with doanh_thu_cua_hang as (
+    select ch.ma_cua_hang, ch.ten_cua_hang, sum(ctdh.so_luong * sp.gia_san_pham) as tong_doanh_thu
+    from chi_tiet_don_hang as ctdh
+    join san_pham as sp on ctdh.ma_san_pham = sp.ma_san_pham
+    join don_hang as dh on ctdh.ma_don_hang = dh.ma_don_hang
+    join nhan_vien as nv on dh.ma_nhan_vien = nv.ma_nhan_vien
+    join cua_hang as ch on nv.ma_cua_hang = ch.ma_cua_hang
+    group by ch.ma_cua_hang
+)
 
+select dtch.ma_cua_hang, ch.dia_chi, dtch.tong_doanh_thu, 
+    dense_rank() over (order by dtch.tong_doanh_thu desc) as 'Xếp hạng'
+from doanh_thu_cua_hang as dtch 
+join cua_hang as ch on dtch.ma_cua_hang = ch.ma_cua_hang
+where ch.khu_vuc = 1
+order by 'Xếp hạng' DESC;
