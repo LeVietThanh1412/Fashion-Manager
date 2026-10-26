@@ -1,89 +1,106 @@
--- Query ID: M01_Q01
--- Title: Danh sach san pham theo gia
--- Level: 1 - basic
--- Tables: san_pham
--- Techniques: WHERE, ORDER BY
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_san_pham, ten_san_pham, gia_ban FROM san_pham WHERE gia_ban BETWEEN 150000 AND 400000 ORDER BY gia_ban, ma_san_pham;
+-- MỨC 1 - TRUY VẤN CƠ BẢN
+-- 1. In ra tất cả các sản phẩm áo có giá từ 100.000 - 300.000
+select *
+from san_pham
+where ten_san_pham like 'Áo %' and gia_san_pham between 100000 and 300000
+order by ma_san_pham;
+
+-- 2. In ra các nhân viên có lương trên 6500000
+select * 
+from nhan_vien
+where luong > 6500000
+order by ma_nhan_vien;
+
+-- 3. In ra các nhân viên thuộc cửa hàng 001
+select * 
+from nhan_vien
+where ma_cua_hang = 'CH001';
+
+-- 4. Hiển thị danh sách sản phẩm theo giá tăng dần hoặc giảm dần.
+select *
+from san_pham
+order by gia_san_pham desc;
+
+-- MỨC 2 - TRUY VẤN NHIỀU BẢNG
+-- 5. Hiển thị nhân viên cùng tên cửa hàng và khu vực cửa hàng đang làm việc.
+select nv.ho_ten as 'Họ và tên', ch.ten_cua_hang as 'Cửa hàng', CasE 
+    when ch.khu_vuc = 1 then 'Miền Bắc'
+    when ch.khu_vuc = 2 then 'Miền Trung'
+    ELSE  'Miền Nam'
+END as 'Khu vực'
+
+from nhan_vien as nv
+join cua_hang as ch on ch.ma_cua_hang = nv.ma_cua_hang;
+
+-- 6. Hiển thị đơn hàng cùng tên khách hàng và nhân viên tạo đơn.
+select dh.ma_don_hang as 'Đơn hàng', kh.ho_ten as 'Khách hàng', nv.ho_ten as 'Nhân viên tạo đơn'
+from don_hang as dh
+join khach_hang as kh on dh.ma_khach_hang = kh.ma_khach_hang
+join nhan_vien as nv on dh.ma_nhan_vien = nv.ma_nhan_vien;
+
+-- 7. Hiển thị các sản phẩm trong từng phiếu phân phối, kèm tên cửa hàng và số lượng phân phối.
+select pp.ma_phan_phoi as 'Phiếu phân phối', ch.ten_cua_hang as 'Cửa hàng', sp.ten_san_pham as 'Sản phẩm', ctpp.so_luong as 'Số lượng'
+from chi_tiet_phan_phoi as ctpp
+join san_pham as sp on ctpp.ma_san_pham = sp.ma_san_pham
+join phan_phoi as pp on ctpp.ma_phan_phoi = pp.ma_phan_phoi
+join nhan_vien as nv on pp.ma_nhan_vien = nv.ma_nhan_vien
+join cua_hang as ch on nv.ma_nhan_vien = ch.ma_cua_hang
+
+-- MỨC 3 - GOM NHÓM, THỐNG KÊ VÀ TRUY VẤN LỒNG NHAU
+-- 8. Thống kê số nhân viên của từng cửa hàng; chỉ hiển thị cửa hàng có số nhân viên từ 3 trở lên.
+select  ch.ten_cua_hang as 'Tên cửa hàng', count(nv.ma_nhan_vien) as 'Số lượng nhân viên'
+from nhan_vien as nv
+join cua_hang as ch on nv.ma_cua_hang = ch.ma_cua_hang
+where nv.ma_cua_hang is not null
+group by nv.ma_cua_hang
+having count(nv.ma_nhan_vien) > 3
+order by nv.ma_cua_hang;
 
 
--- Query ID: M01_Q02
--- Title: Tim san pham theo ten
--- Level: 1 - basic
--- Tables: san_pham
--- Techniques: LIKE
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_san_pham, ten_san_pham, mau_sac FROM san_pham WHERE ten_san_pham LIKE '%5%' ORDER BY ten_san_pham;
+-- 9. Tính tổng số lượng phân phối theo từng cửa hàng và sản phẩm.
+select ch.ten_cua_hang as 'Cửa hàng', sp.ten_san_pham as 'Sản phẩm', sum(ctpp.so_luong) as 'Số lượng'
+from chi_tiet_phan_phoi as ctpp
+join phan_phoi as pp on ctpp.ma_phan_phoi = pp.ma_phan_phoi
+join nhan_vien as nv on nv.ma_nhan_vien = pp.ma_nhan_vien
+join cua_hang as ch on ch.ma_cua_hang = nv.ma_cua_hang
+join san_pham as sp on sp.ma_san_pham = ctpp.ma_san_pham
+group by ch.ma_cua_hang,  sp.ma_san_pham
+order by ch.ten_cua_hang, sp.ten_san_pham;
 
+-- 11. Tìm cửa hàng có tổng doanh thu lớn hơn mức doanh thu trung bình của các cửa hàng.
+with doanh_thu_cua_hang as (
+    select ch.ma_cua_hang, sum(ctdh.so_luong * sp.gia_san_pham) as tong_doanh_thu
+    from chi_tiet_don_hang as ctdh
+    join san_pham as sp on ctdh.ma_san_pham = sp.ma_san_pham
+    join don_hang as dh on ctdh.ma_don_hang = dh.ma_don_hang
+    join nhan_vien as nv on dh.ma_nhan_vien = nv.ma_nhan_vien
+    join cua_hang as ch on nv.ma_cua_hang = ch.ma_cua_hang
+    group by ch.ma_cua_hang
+)
+select ch.ten_cua_hang, dtch.tong_doanh_thu
+from cua_hang as ch
+join doanh_thu_cua_hang as dtch on ch.ma_cua_hang = dtch.ma_cua_hang
+where dtch.tong_doanh_thu > (select avg(doanh_thu_cua_hang.tong_doanh_thu) from doanh_thu_cua_hang)
+order by dtch.tong_doanh_thu desc;
 
--- Query ID: M01_Q03
--- Title: Danh muc theo alphabet
--- Level: 1 - basic
--- Tables: danh_muc
--- Techniques: ORDER BY, string function
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_danh_muc, UPPER(ten_danh_muc) AS ten_in_hoa FROM danh_muc ORDER BY ten_danh_muc;
+-- 12. In ra các nhân viên có tổng doanh thu cao nhất của từng cửa hàng 
+with doanh_thu as (
+    select ch.ma_cua_hang, ch.ten_cua_hang, nv.ma_nhan_vien, nv.ho_ten, sum(ctdh.so_luong * sp.gia_san_pham) as doanh_thu_nv
+    from nhan_vien as nv
+    join cua_hang as ch on nv.ma_cua_hang = ch.ma_cua_hang
+    join don_hang as dh on nv.ma_nhan_vien = dh.ma_nhan_vien
+    join chi_tiet_don_hang as ctdh on dh.ma_don_hang = ctdh.ma_don_hang
+    join san_pham as sp on ctdh.ma_san_pham = sp.ma_san_pham
+    group by ch.ma_cua_hang, nv.ma_nhan_vien
+)
+select dt.ten_cua_hang as 'Cửa hàng', dt.ho_ten as 'Họ tên', dt.doanh_thu_nv as 'Doanh thu'
+from doanh_thu as dt
+where dt.doanh_thu_nv = (
+    select max(dt2.doanh_thu_nv)
+    from doanh_thu as dt2
+    where dt2.ma_cua_hang = dt.ma_cua_hang
+)
+order by dt.ma_cua_hang;
 
-
--- Query ID: M01_Q04
--- Title: San pham gia thap nhat
--- Level: 1 - basic
--- Tables: san_pham
--- Techniques: MIN
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT MIN(gia_ban) AS gia_thap_nhat, MAX(gia_ban) AS gia_cao_nhat FROM san_pham;
-
-
--- Query ID: M01_Q05
--- Title: San pham theo kich co
--- Level: 2 - join
--- Tables: san_pham
--- Techniques: WHERE
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_san_pham, ten_san_pham, kich_co FROM san_pham WHERE kich_co IN ('M','L') ORDER BY ma_san_pham;
-
-
--- Query ID: M01_Q06
--- Title: San pham va danh muc
--- Level: 2 - join
--- Tables: san_pham,danh_muc
--- Techniques: JOIN
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT p.ma_san_pham, p.ten_san_pham, d.ten_danh_muc FROM san_pham p JOIN danh_muc d ON d.ma_danh_muc=p.ma_danh_muc ORDER BY d.ten_danh_muc,p.ma_san_pham;
-
-
--- Query ID: M01_Q07
--- Title: Dem san pham moi danh muc
--- Level: 2 - join
--- Tables: san_pham,danh_muc
--- Techniques: JOIN, GROUP BY, COUNT
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT d.ma_danh_muc,d.ten_danh_muc,COUNT(p.ma_san_pham) AS so_san_pham FROM danh_muc d LEFT JOIN san_pham p ON p.ma_danh_muc=d.ma_danh_muc GROUP BY d.ma_danh_muc,d.ten_danh_muc ORDER BY so_san_pham DESC;
-
-
--- Query ID: M01_Q08
--- Title: Gia trung binh danh muc
--- Level: 3 - aggregate/subquery
--- Tables: san_pham,danh_muc
--- Techniques: JOIN, AVG
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT d.ten_danh_muc,AVG(p.gia_ban) AS gia_trung_binh FROM danh_muc d JOIN san_pham p ON p.ma_danh_muc=d.ma_danh_muc GROUP BY d.ma_danh_muc,d.ten_danh_muc HAVING AVG(p.gia_ban)>200000;
-
-
--- Query ID: M01_Q09
--- Title: San pham cao hon gia trung binh
--- Level: 3 - aggregate/subquery
--- Tables: san_pham
--- Techniques: scalar subquery
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_san_pham,ten_san_pham,gia_ban FROM san_pham WHERE gia_ban>(SELECT AVG(gia_ban) FROM san_pham) ORDER BY gia_ban DESC;
-
-
--- Query ID: M01_Q10
--- Title: Danh muc co san pham gia 0
--- Level: 3 - aggregate/subquery
--- Tables: danh_muc,san_pham
--- Techniques: EXISTS
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT d.ma_danh_muc,d.ten_danh_muc FROM danh_muc d WHERE EXISTS (SELECT 1 FROM san_pham p WHERE p.ma_danh_muc=d.ma_danh_muc AND p.gia_ban=0);
+-- xếp hạng doanh thu các cửa hàng khu vực miền Bắc
 

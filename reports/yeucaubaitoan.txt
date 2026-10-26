@@ -1,0 +1,57 @@
+CHƯƠNG I: BÀI TOÁN ĐẶT RA VÀ YÊU CẦU CỦA HỆ THỐNG
+1.1. Giới thiệu bài toán
+Một thương hiệu thời trang chuyên sản xuất và kinh doanh giày dép sở hữu chuỗi cửa hàng tại nhiều địa điểm khác nhau. Thương hiệu cần quản lý danh mục sản phẩm, thông tin cửa hàng, nhân viên, người quản lý, hoạt động phân phối hàng hóa, khách hàng và các giao dịch bán hàng.
+Nếu quản lý bằng phương pháp thủ công, thông tin dễ bị trùng lặp, sai sót và khó cập nhật đồng bộ giữa các cửa hàng. Việc tra cứu lịch sử mua hàng, theo dõi hàng hóa được phân phối và thống kê kết quả kinh doanh cũng mất nhiều thời gian.
+Vì vậy, cần xây dựng một hệ thống cơ sở dữ liệu giúp quản lý tập trung thông tin của toàn chuỗi, bảo đảm dữ liệu chính xác, nhất quán, dễ tra cứu và phù hợp với trách nhiệm của từng người sử dụng.
+1.2. Yêu cầu chung của bài toán
+Hệ thống cần đáp ứng các yêu cầu chính:
+Quản lý danh mục và thông tin sản phẩm giày dép.
+Quản lý thông tin các cửa hàng trong chuỗi.
+Quản lý nhân viên, người quản lý và việc phân công nhân viên tại cửa hàng.
+Quản lý phiếu phân phối, ngày phân phối và số lượng từng sản phẩm được phân phối.
+Quản lý thông tin khách hàng và lịch sử mua hàng.
+Quản lý đơn hàng, danh sách sản phẩm, số lượng mua và giá bán.
+Tính thành tiền của từng dòng sản phẩm và tổng tiền đơn hàng.
+Hỗ trợ tìm kiếm, thống kê và báo cáo hoạt động phân phối, bán hàng.
+Bảo đảm các mã định danh duy nhất, các liên kết dữ liệu hợp lệ và thông tin được cập nhật nhất quán.
+Phân quyền truy cập theo vai trò của người sử dụng.
+1.3. Cách thức giải quyết bài toán
+Tiến hành tìm hiểu nghiệp vụ quản lý chuỗi cửa hàng giày dép, xác định thông tin cần lưu trữ và các quy tắc trong quá trình phân phối, bán hàng.
+Từ yêu cầu nghiệp vụ, xác định các thực thể và mối quan hệ để xây dựng mô hình ER. Các thực thể chính gồm: Danh mục, Sản phẩm, Cửa hàng, Quản lý, Nhân viên, Phân phối, Khách hàng và Đơn hàng.
+Sau đó, chuyển mô hình ER thành mô hình quan hệ, xác định khóa chính, khóa ngoại và các ràng buộc toàn vẹn. Các nhóm thông tin sản phẩm lặp trong phiếu phân phối và đơn hàng được tách thành bảng chi tiết khi triển khai cơ sở dữ liệu MySQL.
+Cuối cùng, nhập dữ liệu mẫu, xây dựng các truy vấn tìm kiếm và thống kê; kiểm thử thao tác thêm, sửa, xóa và kiểm tra các ràng buộc để hoàn thiện hệ thống.
+1.4. Phát biểu nghiệp vụ của bài toán
+Quản lý danh mục: Thương hiệu có nhiều danh mục sản phẩm giày dép. Mỗi danh mục có mã danh mục duy nhất và tên danh mục. Một danh mục có thể bao gồm nhiều sản phẩm; mỗi sản phẩm thuộc một danh mục duy nhất.
+Quản lý sản phẩm: Mỗi sản phẩm có mã sản phẩm duy nhất, mã danh mục, tên sản phẩm, màu sắc, kích cỡ và giá sản phẩm. Trong phạm vi hệ thống, mỗi mã sản phẩm xác định một mặt hàng có màu sắc và kích cỡ cụ thể. Các mặt hàng cùng mẫu nhưng khác màu sắc hoặc kích cỡ được cấp mã sản phẩm khác nhau. Giá sản phẩm không được âm.
+Quản lý cửa hàng: Mỗi cửa hàng có mã cửa hàng duy nhất, tên cửa hàng, mã khu vực (quy định 1: khu vực miền Bắc, 2: khu vực miền Trung, 3: khu vực miền Nam), địa chỉ, số điện thoại và email. Một cửa hàng có nhiều nhân viên, nhận nhiều phiếu phân phối và thực hiện hoạt động bán hàng thông qua các nhân viên được phân công.
+Quản lý nhân viên: Mỗi thương hiệu có một nhân viên quản lý cấp cao chịu trách nhiệm quản lý toàn bộ hoạt động của thương hiệu. Nhân viên quản lý cấp cao có quyền bổ nhiệm, điều chuyển hoặc thay thế nhân viên giữ vị trí quản lý khu vực tùy theo nhu cầu hoạt động và quyết định quản lý. Mỗi khu vực có thể có nhiều nhân viên từng đảm nhiệm vị trí quản lý ở các thời điểm khác nhau, nhưng tại một thời điểm, mỗi khu vực chỉ có duy nhất một quản lý khu vực được phân công phụ trách. Mỗi quản lý khu vực chỉ được phụ trách một khu vực tại một thời điểm.
+Quản lý khu vực có trách nhiệm quản lý, điều phối hoạt động của các cửa hàng thuộc khu vực mình phụ trách và có quyền bổ nhiệm, điều chuyển hoặc thay thế quản lý cửa hàng theo thẩm quyền được giao. Tương tự, mỗi cửa hàng có thể có nhiều nhân viên từng đảm nhiệm vị trí quản lý trong các khoảng thời gian khác nhau, nhưng tại một thời điểm, mỗi cửa hàng chỉ có duy nhất một quản lý cửa hàng. Quản lý cửa hàng chịu trách nhiệm phân công công việc và điều phối các nhân viên làm việc tại cửa hàng đó.
+Quản lý phân phối: Thương hiệu chuyển sản phẩm đến các cửa hàng thông qua phiếu phân phối. Mỗi phiếu có mã phân phối duy nhất, ngày phân phối, mã cửa hàng nhận và mã nhân viên phụ trách nhận hàng. Mỗi phiếu được lập cho một cửa hàng và có một nhân viên phụ trách nhận. Nhân viên này phải thuộc cửa hàng nhận hàng.
+Một cửa hàng có thể nhận nhiều phiếu phân phối; một nhân viên có thể phụ trách nhận nhiều phiếu. Ngày phân phối ghi nhận ngày thực tế thực hiện việc phân phối hàng hóa.
+Mỗi phiếu có ít nhất một dòng sản phẩm. Thông tin từng dòng gồm mã sản phẩm, tên sản phẩm, màu sắc, kích cỡ, giá sản phẩm và số lượng phân phối. Số lượng phân phối phải là số nguyên lớn hơn 0.
+Một sản phẩm có thể xuất hiện trong nhiều phiếu nhưng chỉ xuất hiện một lần trong cùng một phiếu; nếu phân phối thêm cùng sản phẩm trên phiếu đó thì cập nhật số lượng tương ứng. Thông tin mô tả sản phẩm được đối chiếu với hồ sơ sản phẩm.
+Quản lý khách hàng: Mỗi khách hàng có mã khách hàng duy nhất, họ tên và số điện thoại. Thông tin khách hàng được sử dụng để tra cứu, liên hệ và theo dõi lịch sử mua hàng. Một khách hàng có thể có nhiều đơn hàng; mỗi đơn hàng thuộc một khách hàng. Trong phạm vi bài toán, khách hàng được ghi nhận thông tin trước khi lập đơn.
+Quản lý đơn hàng: Mỗi đơn hàng có mã đơn hàng duy nhất, mã nhân viên tạo đơn, mã khách hàng và ngày tạo đơn. Mỗi đơn hàng do một nhân viên lập cho một khách hàng. Một nhân viên có thể lập nhiều đơn hàng và một khách hàng có thể phát sinh nhiều đơn hàng.
+Nhân viên chỉ lập đơn tại cửa hàng được phân công. Để xác định cửa hàng phát sinh giao dịch từ thông tin nhân viên, phạm vi bài toán chưa xét việc luân chuyển nhân viên giữa các cửa hàng.
+Mỗi đơn hàng có ít nhất một dòng sản phẩm. Mỗi dòng ghi nhận mã sản phẩm, tên sản phẩm, kích cỡ, màu sắc, giá bán tại thời điểm lập đơn, số lượng mua và thành tiền. Số lượng mua phải là số nguyên lớn hơn 0; giá bán không được âm. Một sản phẩm chỉ xuất hiện một lần trong cùng đơn hàng.
+Thành tiền và tổng tiền được xác định theo công thức:
+Thành tiền từng dòng = Số lượng mua × Giá bán tại thời điểm lập đơn.
+Tổng tiền đơn hàng = Tổng thành tiền của các dòng sản phẩm trong đơn.
+Giá bán đã ghi nhận trong đơn được giữ nguyên để bảo toàn lịch sử giao dịch khi giá sản phẩm thay đổi. Thành tiền và tổng tiền phải được tính lại khi số lượng hoặc giá bán của đơn đang lập thay đổi.
+CHƯƠNG II: PHÂN TÍCH HỆ THỐNG
+2.1. Phân tích chức năng của hệ thống
+Hệ thống gồm các chức năng chính:
+Quản lý danh mục và sản phẩm: Thêm, cập nhật và tra cứu danh mục; quản lý mã sản phẩm, tên sản phẩm, màu sắc, kích cỡ và giá.
+Quản lý cửa hàng: Lưu trữ, cập nhật và tìm kiếm thông tin cửa hàng trong chuỗi.
+Quản lý người quản lý và nhân viên: Quản lý hồ sơ nhân viên, phân công cửa hàng làm việc, xác định quản lý cửa hàng và người quản lý trực tiếp của từng nhân viên.
+Quản lý phân phối: Lập và tra cứu phiếu phân phối; ghi nhận ngày phân phối, cửa hàng nhận, nhân viên phụ trách, danh sách sản phẩm và số lượng phân phối.
+Quản lý khách hàng: Thêm, cập nhật, tìm kiếm thông tin khách hàng và tra cứu lịch sử mua hàng.
+Quản lý đơn hàng: Lập và tra cứu đơn hàng; ghi nhận khách hàng, nhân viên tạo đơn, ngày tạo, sản phẩm, số lượng và giá bán; tính thành tiền và tổng tiền.
+Tìm kiếm, thống kê và báo cáo: Thống kê số lượng sản phẩm được phân phối theo cửa hàng và thời gian; thống kê số lượng sản phẩm bán ra, số đơn hàng và doanh thu theo thời gian, nhân viên hoặc cửa hàng.
+Kiểm soát dữ liệu và phân quyền: Kiểm tra tính hợp lệ của thông tin nhập, bảo đảm liên kết dữ liệu và giới hạn thao tác theo trách nhiệm của người sử dụng.
+2.2. Người sử dụng hệ thống
+Nhân viên phụ trách thương hiệu: Quản lý danh mục, sản phẩm và thông tin các cửa hàng; phân công người quản lý; lập phiếu phân phối, ghi nhận ngày phân phối và số lượng sản phẩm; theo dõi hoạt động phân phối và kết quả kinh doanh của toàn chuỗi.
+Quản lý cửa hàng: Quản lý nhân viên thuộc cửa hàng, theo dõi các phiếu phân phối, kiểm tra sản phẩm và số lượng nhận, giám sát hoạt động bán hàng và xem báo cáo trong phạm vi cửa hàng mình phụ trách.
+Nhân viên bán hàng: Tra cứu sản phẩm, tìm kiếm hoặc cập nhật thông tin khách hàng, lập đơn hàng, nhập số lượng mua và kiểm tra giá trị giao dịch tại cửa hàng được phân công. Khi được giao nhiệm vụ, nhân viên phụ trách tiếp nhận và đối chiếu hàng hóa theo phiếu phân phối.
+
+

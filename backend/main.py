@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -6,8 +8,11 @@ import uvicorn
 
 from app.core.config import settings
 from app.db.connection import connection
+from app.db.query_loader import QueryLoader
 from app.routers.catalog import router as catalog_router
 from app.routers.analytics import router as analytics_router
+from app.routers.auth import router as auth_router
+from app.routers.employees import router as employees_router
 from app.routers.orders import router as orders_router
 from app.routers.query_explorer import router as query_explorer_router
 
@@ -21,8 +26,11 @@ app.add_middleware(
 )
 app.include_router(catalog_router)
 app.include_router(analytics_router)
+app.include_router(auth_router)
+app.include_router(employees_router)
 app.include_router(orders_router)
 app.include_router(query_explorer_router)
+SQL_LOADER = QueryLoader(Path(__file__).resolve().parents[1] / "sql" / "app")
 
 
 @app.exception_handler(MySQLError)
@@ -49,7 +57,7 @@ def database_health() -> dict[str, str]:
         with connection() as conn:
             cursor = conn.cursor()
             try:
-                cursor.execute("SELECT VERSION()")
+                cursor.execute(SQL_LOADER.load("health/mysql_version.sql"))
                 version = str(cursor.fetchone()[0])
             finally:
                 cursor.close()

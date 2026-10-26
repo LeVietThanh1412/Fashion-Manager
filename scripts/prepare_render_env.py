@@ -26,7 +26,10 @@ def main() -> None:
         'PYTHON_VERSION': '3.12.13',
         'DB_HOST': settings.db_host, 'DB_PORT': str(settings.db_port),
         'DB_NAME': settings.db_name, 'DB_USER': settings.db_user, 'DB_PASSWORD': settings.db_password,
-        'APP_CORS_ORIGINS': 'https://thanhtech.cloud,https://levietthanh1412.github.io',
+        'APP_CORS_ORIGINS': (
+            'https://thanhtech.cloud,https://levietthanh1412.github.io,'
+            'http://localhost:5500,http://127.0.0.1:5500'
+        ),
     })
     print('PASS: Aiven verified. Created .env.render for Render Import .env; credentials are not printed.')
 

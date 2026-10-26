@@ -1,10 +1,15 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 import mysql.connector
 
 from app.core.config import settings
+from app.db.query_loader import QueryLoader
+
+SQL_ROOT = Path(__file__).resolve().parents[3] / "sql" / "app"
+loader = QueryLoader(SQL_ROOT)
 
 
 @contextmanager
@@ -29,7 +34,7 @@ def connection() -> Iterator[Any]:
         if settings.db_host not in {"localhost", "127.0.0.1", "::1"}:
             cursor = conn.cursor()
             try:
-                cursor.execute("SHOW SESSION STATUS LIKE 'Ssl_cipher'")
+                cursor.execute(loader.load("health/ssl_cipher.sql"))
                 cipher = cursor.fetchone()
                 if not cipher or not cipher[1]:
                     raise mysql.connector.InterfaceError("Remote MySQL connections require TLS.")

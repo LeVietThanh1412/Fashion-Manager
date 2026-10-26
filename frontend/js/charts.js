@@ -30,7 +30,7 @@ function clearSalesAnalytics(message) {
 
 function renderSalesAnalytics(data) {
   document.getElementById('salesTotal').textContent = `${new Intl.NumberFormat('vi-VN').format(data.total_orders)} đơn hàng trong 30 ngày gần nhất`;
-  document.getElementById('salesRevenue').textContent = `Tổng giá trị đơn hàng: ${formatVND(data.total_revenue)}`;
+  document.getElementById('salesRevenue').textContent = `Doanh thu ước tính (giá hiện tại): ${formatVND(data.total_revenue)}`;
   renderSalesBars('chart30Days', data.daily, item => salesDateLabel(item.date));
   renderSalesBars('chartHourly', data.hourly, item => `${item.hour}h`);
   document.getElementById('chartFirstDate').textContent = salesDateLabel(data.daily[0].date);

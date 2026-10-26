@@ -1,0 +1,1 @@
+SHOW SESSION STATUS LIKE 'Ssl_cipher';

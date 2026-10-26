@@ -39,7 +39,10 @@ def test_dashboard_uses_vietnam_day_boundaries_and_real_empty_counts(monkeypatch
     assert len(result['hourly']) == 24
     assert result['total'] == 0
     assert result['visits'] == []
-    assert cursor.execute.call_args_list[0].args[1] == (datetime(2026, 9, 23, 17), datetime(2026, 10, 23, 17))
+    assert cursor.execute.call_args_list[0].args[1] == {
+        "start": datetime(2026, 9, 23, 17),
+        "end": datetime(2026, 10, 23, 17),
+    }
 
 
 def test_visit_is_persisted_only_on_explicit_tracking_request(monkeypatch):
@@ -47,6 +50,10 @@ def test_visit_is_persisted_only_on_explicit_tracking_request(monkeypatch):
     recorder = MagicMock()
     monkeypatch.setattr(router, 'record_visit', recorder)
     monkeypatch.setattr(router, 'get_visit_dashboard', lambda: {'total': 0})
+    import app.core.authentication as authentication
+    app.dependency_overrides[authentication.get_current_user] = lambda: {
+        "quyen_han": "admin",
+    }
     with TestClient(app) as client:
         assert client.get('/api/analytics/visits').status_code == 200
         recorder.assert_not_called()
@@ -55,3 +62,4 @@ def test_visit_is_persisted_only_on_explicit_tracking_request(monkeypatch):
         assert recorder.call_args.args[0] == '/Fashion-Manager/'
         assert recorder.call_args.args[2:] == ('mobile', 'example.com')
         assert client.post('/api/analytics/visits', json={'path': 'https://bad.example'}).status_code == 422
+    app.dependency_overrides.clear()

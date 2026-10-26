@@ -25,7 +25,8 @@ def test_sales_buckets_and_recent_orders_use_business_records(monkeypatch):
         yield conn
 
     monkeypatch.setattr(repository, 'connection', connected)
-    result = repository.get_sales_dashboard(datetime(2026, 10, 23, 2, tzinfo=timezone.utc))
+    actor = {"quyen_han": "admin", "khu_vuc_quan_ly": None, "ma_cua_hang": None}
+    result = repository.get_sales_dashboard(actor, datetime(2026, 10, 23, 2, tzinfo=timezone.utc))
     assert result['total_orders'] == 2
     assert result['total_revenue'] == 350000
     assert len(result['daily']) == 30
@@ -34,18 +35,29 @@ def test_sales_buckets_and_recent_orders_use_business_records(monkeypatch):
     assert result['hourly'][8]['count'] == 2
     assert result['orders'][0]['timestamp'].endswith('+07:00')
     assert result['categories'][0]['count'] == 3
-    assert cursor.execute.call_args_list[0].args[1] == (datetime(2026, 9, 24), datetime(2026, 10, 24))
+    assert cursor.execute.call_args_list[0].args[1] == {
+        "start": datetime(2026, 9, 24),
+        "end": datetime(2026, 10, 24),
+        "actor_role": "admin",
+        "actor_region": None,
+        "actor_store": None,
+    }
 
 
 def test_sales_failure_is_not_reported_as_zero_revenue(monkeypatch):
     import app.routers.analytics as router
 
-    def unavailable():
+    def unavailable(_actor):
         raise OperationalError('private database details')
 
     monkeypatch.setattr(router, 'get_sales_dashboard', unavailable)
+    import app.core.authentication as authentication
+    app.dependency_overrides[authentication.get_current_user] = lambda: {
+        "quyen_han": "admin",
+    }
     with TestClient(app) as client:
         response = client.get('/api/analytics/sales')
         assert response.status_code == 503
         assert 'total_revenue' not in response.json()
         assert 'private database' not in response.text
+    app.dependency_overrides.clear()

@@ -3,6 +3,38 @@ body {
   background-color: #f4f4f3;
   color: #18181b;
 }
+
+#authPanel {
+  max-width: 640px;
+}
+
+#loginForm {
+  margin-top: 0.25rem;
+}
+
+#loginForm label {
+  display: block;
+  color: #3f3f46;
+}
+
+#loginForm input {
+  background-color: #e7f0f7;
+  border-color: #bdd0db;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+}
+
+#loginForm input:focus {
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.12);
+}
+
+#loginForm button {
+  min-height: 50px;
+}
+
+#loginStatus {
+  line-height: 1.4;
+}
+
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

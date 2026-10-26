@@ -5,6 +5,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 QUERY_DIR = ROOT / "sql" / "query"
 ID_RE = re.compile(r"-- Query ID: (M\d{2}_Q\d{2})")
+NUMBERED_RE = re.compile(r"(?m)^--\s+(\d{1,2})\.\s+")
 
 
 def main() -> int:
@@ -13,7 +14,13 @@ def main() -> int:
     ids: list[str] = []
     for path in files:
         text = path.read_text(encoding="utf-8")
-        found = ID_RE.findall(text)
+        # member_01 predates the ID comment convention.  The API loader maps
+        # its numbered headings to M01_Q01 ... M01_Q10, so validate it using
+        # the same rule instead of reporting the valid file as empty.
+        if path.name == "member_01.sql":
+            found = [f"M01_Q{int(number):02d}" for number in NUMBERED_RE.findall(text)]
+        else:
+            found = ID_RE.findall(text)
         if len(found) < 10:
             errors.append(f"{path.name}: expected at least 10 IDs, got {len(found)}")
         if text.upper().count("SELECT ") < 10:

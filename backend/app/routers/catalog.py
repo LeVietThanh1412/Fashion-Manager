@@ -1,6 +1,13 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.repositories.catalog import get_catalog_summary, list_products, list_stores, list_categories
+from app.core.authentication import require_roles
+from app.repositories.catalog import (
+    get_catalog_summary,
+    list_categories,
+    list_customers_for_orders,
+    list_products,
+    list_stores,
+)
 
 router = APIRouter(prefix="/api", tags=["catalog"])
 
@@ -17,8 +24,8 @@ def products(
 
 
 @router.get("/stores")
-def stores() -> dict[str, object]:
-    return {"items": list_stores()}
+def stores(actor: dict = Depends(require_roles("admin", "regional_manager", "store_manager"))) -> dict[str, object]:
+    return {"items": list_stores(actor)}
 
 
 @router.get("/categories")
@@ -26,9 +33,14 @@ def categories() -> dict[str, object]:
     return {"items": list_categories()}
 
 
+@router.get("/customers")
+def customers_for_orders(actor: dict = Depends(require_roles("staff"))) -> dict[str, object]:
+    return {"items": list_customers_for_orders()}
+
+
 @router.get("/analytics/summary")
-def analytics_summary() -> dict[str, object]:
-    summary = get_catalog_summary()
+def analytics_summary(actor: dict = Depends(require_roles("admin", "regional_manager", "store_manager"))) -> dict[str, object]:
+    summary = get_catalog_summary(actor)
     return {
         **summary,
         "sync_status": "ok",

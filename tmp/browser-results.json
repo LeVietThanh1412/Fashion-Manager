@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "Admin: all 10 tabs open",
+    "Academic query runs from UI",
+    "Create category and product through UI",
+    "Create employee with salary and level from UI",
+    "Regional manager changes salary/level and views regional report",
+    "Store manager may assign staff role only and edit own staff salary",
+    "Staff sees assigned distribution quantities and creates a correctly totaled order",
+    "Mobile layout: menu works and no page overflow at 390px",
+    "UI test records removed"
+  ],
+  "console_errors": []
+}

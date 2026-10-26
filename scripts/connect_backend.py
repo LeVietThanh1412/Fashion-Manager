@@ -58,16 +58,26 @@ def github_request(token: str, path: str, method: str = 'GET', payload: dict | N
 
 
 def verify_api(url: str, origin: str) -> None:
+    protected = {'/api/stores', '/api/analytics/summary', '/api/analytics/sales'}
     for path in ('/health', '/api/health/db', '/api/products', '/api/categories', '/api/stores', '/api/analytics/summary', '/api/analytics/sales'):
         try:
-            with urlopen(Request(url + path, headers={'Origin': origin}), timeout=90) as response:
+            try:
+                response = urlopen(Request(url + path, headers={'Origin': origin}), timeout=90)
+            except HTTPError as error:
+                response = error
+            with response:
                 data = json.load(response)
                 if response.headers.get('Access-Control-Allow-Origin') != origin:
                     raise ValueError(f'Backend CORS must allow {origin}. Update APP_CORS_ORIGINS on Render.')
+                if path in protected:
+                    if response.status != 401:
+                        raise ValueError(f'Protected API {path} did not reject an unauthenticated request.')
+                    print(f'PASS: {path}: unauthenticated request rejected')
+                    continue
+                if response.status != 200:
+                    raise ValueError(f'Backend {path} returned HTTP {response.status}.')
                 if path in ('/health', '/api/health/db') and data.get('status') != 'ok':
                     raise ValueError(f'Backend {path} is not ready.')
-                if path == '/api/analytics/sales' and 'daily' not in data:
-                    raise ValueError('The deployed backend is missing sales analytics.')
         except (HTTPError, URLError) as exc:
             raise ValueError(f'Backend {path} is unavailable ({type(exc).__name__}). Check Render deployment and database settings.') from None
         print(f'PASS: {path}')

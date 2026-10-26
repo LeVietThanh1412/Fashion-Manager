@@ -1,34 +1,61 @@
-from datetime import datetime
-from decimal import Decimal
-from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from app.db.connection import connection
-from app.db.query_loader import QueryLoader
-
-SQL_ROOT = Path(__file__).resolve().parents[3] / "sql" / "app"
-loader = QueryLoader(SQL_ROOT)
 
 
 def create_order(
-    order_id: str,
     employee_id: str,
     customer_id: str,
-    created_at: datetime,
-    details: list[dict[str, str | int | Decimal]],
-) -> None:
-    try:
-        with connection() as conn:
-            cursor = conn.cursor()
-            try:
+    details: list[dict[str, str | int]],
+) -> str:
+    order_id = f"DH{uuid4().hex[:18]}"
+    with connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT ma_khach_hang
+                FROM khach_hang
+                WHERE ma_khach_hang = %(customer_id)s
+                LIMIT 1
+                """,
+                {"customer_id": customer_id},
+            )
+            if cursor.fetchone() is None:
+                raise LookupError("Không tìm thấy khách hàng.")
+
+            cursor.execute(
+                """
+                INSERT INTO don_hang (ma_don_hang, ma_nhan_vien, ma_khach_hang)
+                VALUES (%(order_id)s, %(employee_id)s, %(customer_id)s)
+                """,
+                {"order_id": order_id, "employee_id": employee_id, "customer_id": customer_id},
+            )
+            for detail in details:
                 cursor.execute(
-                    loader.load("orders/create_header.sql"),
-                    {"order_id": order_id, "employee_id": employee_id, "customer_id": customer_id, "created_at": created_at},
+                    """
+                    SELECT ma_san_pham
+                    FROM san_pham
+                    WHERE ma_san_pham = %(product_id)s
+                    LIMIT 1
+                    """,
+                    {"product_id": detail["product_id"]},
                 )
-                for detail in details:
-                    cursor.execute(loader.load("orders/create_detail.sql"), detail)
-                conn.commit()
-            finally:
-                cursor.close()
-    except Exception:
-        raise
+                if cursor.fetchone() is None:
+                    raise LookupError(f"Không tìm thấy sản phẩm {detail['product_id']}.")
+                cursor.execute(
+                    """
+                    INSERT INTO chi_tiet_don_hang (ma_don_hang, ma_san_pham, so_luong)
+                    VALUES (%(order_id)s, %(product_id)s, %(quantity)s)
+                    """,
+                    {
+                        "order_id": order_id,
+                        "product_id": detail["product_id"],
+                        "quantity": detail["quantity"],
+                    },
+                )
+            conn.commit()
+            return order_id
+        finally:
+            cursor.close()

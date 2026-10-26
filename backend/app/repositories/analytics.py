@@ -1,8 +1,12 @@
 from datetime import datetime, time, timedelta, timezone
+from pathlib import Path
 
 from app.db.connection import connection
+from app.db.query_loader import QueryLoader
 
 VIETNAM = timezone(timedelta(hours=7))
+SQL_ROOT = Path(__file__).resolve().parents[3] / "sql" / "app"
+loader = QueryLoader(SQL_ROOT)
 
 
 def record_visit(path: str, ip: str, device: str, referrer: str) -> None:
@@ -10,8 +14,8 @@ def record_visit(path: str, ip: str, device: str, referrer: str) -> None:
         cursor = conn.cursor()
         try:
             cursor.execute(
-                'INSERT INTO luot_truy_cap_web (thoi_gian, trang_vao, ip_an_danh, thiet_bi, den_tu) VALUES (UTC_TIMESTAMP(), %s, %s, %s, %s)',
-                (path, ip, device, referrer),
+                loader.load("analytics/visit_create.sql"),
+                {"path": path, "ip": ip, "device": device, "referrer": referrer},
             )
             conn.commit()
         finally:
@@ -23,17 +27,17 @@ def get_visit_dashboard(now: datetime | None = None) -> dict:
     first = today - timedelta(days=29)
     start = datetime.combine(first, time.min, VIETNAM).astimezone(timezone.utc).replace(tzinfo=None)
     end = datetime.combine(today + timedelta(days=1), time.min, VIETNAM).astimezone(timezone.utc).replace(tzinfo=None)
-    condition = ' FROM luot_truy_cap_web WHERE thoi_gian >= %s AND thoi_gian < %s '
+    period = {"start": start, "end": end}
     with connection() as conn:
         cursor = conn.cursor(dictionary=True)
         try:
-            cursor.execute('SELECT DATE(DATE_ADD(thoi_gian, INTERVAL 7 HOUR)) AS day, COUNT(*) AS count' + condition + 'GROUP BY day', (start, end))
+            cursor.execute(loader.load("analytics/visits_daily.sql"), period)
             days = {str(row['day']): int(row['count']) for row in cursor.fetchall()}
-            cursor.execute('SELECT HOUR(DATE_ADD(thoi_gian, INTERVAL 7 HOUR)) AS hour, COUNT(*) AS count' + condition + 'GROUP BY hour', (start, end))
+            cursor.execute(loader.load("analytics/visits_hourly.sql"), period)
             hours = {int(row['hour']): int(row['count']) for row in cursor.fetchall()}
-            cursor.execute('SELECT thiet_bi AS device, COUNT(*) AS count' + condition + 'GROUP BY thiet_bi', (start, end))
+            cursor.execute(loader.load("analytics/visits_devices.sql"), period)
             devices = {row['device']: int(row['count']) for row in cursor.fetchall()}
-            cursor.execute('SELECT id, thoi_gian, trang_vao, ip_an_danh, thiet_bi, den_tu' + condition + 'ORDER BY thoi_gian DESC, id DESC LIMIT 50', (start, end))
+            cursor.execute(loader.load("analytics/visits_recent.sql"), period)
             visits = [
                 {
                     'id': row['id'],

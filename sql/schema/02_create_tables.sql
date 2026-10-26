@@ -5,12 +5,26 @@ CREATE TABLE danh_muc (
     ten_danh_muc VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE khu_vuc (
+    ma_khu_vuc TINYINT PRIMARY KEY,
+    ten_khu_vuc VARCHAR(30) NOT NULL UNIQUE,
+    CONSTRAINT ck_khu_vuc_ma CHECK (ma_khu_vuc IN (1, 2, 3))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO khu_vuc (ma_khu_vuc, ten_khu_vuc) VALUES
+    (1, 'Miền Bắc'),
+    (2, 'Miền Trung'),
+    (3, 'Miền Nam');
+
 CREATE TABLE cua_hang (
     ma_cua_hang VARCHAR(20) PRIMARY KEY,
     ten_cua_hang VARCHAR(255) NOT NULL,
+    khu_vuc TINYINT NOT NULL DEFAULT 3 COMMENT '1 = Mien Bac; 2 = Mien Trung; 3 = Mien Nam',
     dia_chi VARCHAR(255) NOT NULL,
     so_dien_thoai VARCHAR(25) NOT NULL UNIQUE,
-    email VARCHAR(255) NOT NULL UNIQUE
+    email VARCHAR(255) NOT NULL UNIQUE,
+    CONSTRAINT fk_cua_hang_khu_vuc FOREIGN KEY (khu_vuc)
+        REFERENCES khu_vuc(ma_khu_vuc)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE san_pham (
@@ -31,8 +45,23 @@ CREATE TABLE nhan_vien (
     ho_ten VARCHAR(255) NOT NULL,
     so_dien_thoai VARCHAR(25) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
-    ma_cua_hang VARCHAR(20) NOT NULL,
+    ma_cua_hang VARCHAR(20),
     ma_quan_ly VARCHAR(20),
+    quyen_han ENUM('admin', 'regional_manager', 'store_manager', 'staff')
+        NOT NULL DEFAULT 'staff',
+    khu_vuc_quan_ly TINYINT,
+    luong DECIMAL(12, 2),
+    trang_thai ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    CONSTRAINT ck_nhan_vien_luong CHECK (luong IS NULL OR luong >= 0),
+    CONSTRAINT ck_nhan_vien_pham_vi CHECK (
+        (quyen_han = 'admin' AND ma_cua_hang IS NULL AND khu_vuc_quan_ly IS NULL)
+        OR (quyen_han = 'regional_manager'
+            AND ma_cua_hang IS NULL AND khu_vuc_quan_ly IS NOT NULL)
+        OR (quyen_han IN ('store_manager', 'staff')
+            AND ma_cua_hang IS NOT NULL AND khu_vuc_quan_ly IS NULL)
+    ),
+    CONSTRAINT fk_nhan_vien_khu_vuc FOREIGN KEY (khu_vuc_quan_ly)
+        REFERENCES khu_vuc(ma_khu_vuc),
     CONSTRAINT fk_nhan_vien_cua_hang FOREIGN KEY (ma_cua_hang)
         REFERENCES cua_hang(ma_cua_hang),
     CONSTRAINT fk_nhan_vien_quan_ly FOREIGN KEY (ma_quan_ly)

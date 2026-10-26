@@ -31,8 +31,10 @@ def test_backend_connection_checks_all_real_endpoints(monkeypatch):
 
     def response(request, **kwargs):
         calls.append(request.full_url)
-        stream = io.BytesIO(json.dumps({'status': 'ok', 'daily': []}).encode())
+        protected = any(request.full_url.endswith(path) for path in ('/api/stores', '/api/analytics/summary', '/api/analytics/sales'))
+        stream = io.BytesIO(json.dumps({'detail': 'Not authenticated'} if protected else {'status': 'ok'}).encode())
         stream.headers = {'Access-Control-Allow-Origin': 'https://thanhtech.cloud'}
+        stream.status = 401 if protected else 200
         return stream
 
     monkeypatch.setattr(connect_backend, 'urlopen', response)

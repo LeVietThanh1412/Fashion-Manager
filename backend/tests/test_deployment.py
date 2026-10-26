@@ -14,7 +14,21 @@ from scripts.build_frontend_config import build_config
 def test_default_cors_allows_the_deployed_frontend(monkeypatch):
     from app.core.config import Settings
     monkeypatch.delenv('APP_CORS_ORIGINS', raising=False)
-    assert 'https://thanhtech.cloud' in Settings().app_cors_origins
+    origins = Settings().app_cors_origins
+    assert 'https://thanhtech.cloud' in origins
+    assert 'http://127.0.0.1:5500' in origins
+    assert 'http://localhost:5500' in origins
+
+
+def test_configured_cors_keeps_local_live_server_origins(monkeypatch):
+    from app.core.config import Settings
+
+    monkeypatch.setenv('APP_CORS_ORIGINS', 'https://preview.example.test')
+    origins = Settings().app_cors_origins
+
+    assert 'https://preview.example.test' in origins
+    assert 'http://127.0.0.1:5500' in origins
+    assert 'http://localhost:5500' in origins
 
 
 @pytest.mark.parametrize('url', ['', 'http://api.example.com', 'https://localhost', 'https://127.0.0.1', 'https://api.example.com?password=secret', 'https://user:pass@api.example.com'])

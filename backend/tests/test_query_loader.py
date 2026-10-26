@@ -23,8 +23,8 @@ def test_loader_rejects_non_sql() -> None:
         loader.load("products/get_by_id.txt")
 
 
-def test_academic_registry_contains_50_read_only_queries() -> None:
+def test_academic_registry_contains_all_numbered_and_registered_queries() -> None:
     root = Path(__file__).parents[2] / "sql" / "query"
     queries = load_academic_queries(root)
-    assert len(queries) == 50
-    assert all(query.sql.upper().startswith("SELECT ") for query in queries.values())
+    assert len(queries) == 51
+    assert all(query.sql.lstrip().upper().startswith(("SELECT ", "WITH ")) for query in queries.values())

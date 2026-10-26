@@ -1,175 +1,171 @@
 # Chạy và deploy Fashion Manager
 
-Luồng dữ liệu: trình duyệt → frontend GitHub Pages → FastAPI chạy trên Render → Aiven MySQL.
-GitHub Actions chạy test và đưa file tĩnh lên Pages; runner không phải máy chủ backend lâu dài.
-GitHub Secrets chỉ cấp biến cho Actions, không tự cấp biến cho Render.
+Luồng ứng dụng và bảng ánh xạ màn hình/API: [INTEGRATION.md](INTEGRATION.md).
+Các bước dưới đây mô tả cấu hình từ source hiện tại; không khẳng định trạng thái deploy của
+một tài khoản GitHub/Render. Thư mục bàn giao hiện không có `.git`.
 
-## Setup tự động cho repository này
+## 1. Chạy local
 
-Tài khoản chủ repo đã được xác nhận có GitHub Pro, nên GitHub Pages dùng được với repo private.
-Giữ nguyên visibility theo lựa chọn của bạn. Public/private không gây lỗi DNS của MySQL.
-Pages đã chuyển sang Source **GitHub Actions**; secrets DB đã được đồng bộ từ kết nối Aiven đang hoạt động.
-Workflow Aiven đã chạy thành công sau khi đồng bộ.
-
-Phần cần thực hiện một lần là tạo dịch vụ FastAPI trên Render. Có hai cách:
-
-- **New → Blueprint**: kết nối repo và dùng `render.yaml`; Render tự đọc runtime, build/start command, gói Free và CORS.
-- **New → Web Service** như màn hình hiện tại: điền các giá trị dưới đây và chọn instance **Free**.
-
-```text
-Language: Python 3
-Branch: main
-Root Directory: để trống
-Build Command: pip install -r backend/requirements.txt
-Start Command: python -m uvicorn main:app --app-dir backend --host 0.0.0.0 --port $PORT
-Health Check Path: /health
-Instance Type: Free
-```
-
-Đã tạo sẵn `.env.render` tại thư mục gốc, chứa thông tin Aiven đã kiểm tra và CORS cho domain Pages thực tế `https://thanhtech.cloud`.
-Trong Render chọn **Add from .env** và dùng nội dung file này. File đã được `.gitignore` bảo vệ, không đưa lên GitHub.
-Có thể tạo lại bằng `py -3.13 scripts/prepare_render_env.py`.
-
-Sau khi Render báo Live và cấp URL HTTPS, tại máy chạy:
+Dùng Python 3.12/3.13. Trên máy hiện tại có Python 3.13:
 
 ```powershell
-# Dependency riêng cho script setup; không cần thêm vào backend production.
-py -3.13 -m pip install PyNaCl
-py -3.13 scripts/connect_backend.py https://URL-THAT-CUA-BAN.onrender.com
-```
-
-Script xác minh 7 endpoint thật và CORS, cập nhật secret `FRONTEND_API_URL`, đồng bộ Variable cùng tên nếu đang tồn tại, rồi tự chạy workflow deploy frontend.
-Script dùng phiên GitHub của Git Credential Manager trên máy (hoặc `GH_TOKEN` trong môi trường); không in token hoặc mật khẩu.
-Không thay URL ví dụ vào GitHub Secret: phải dùng URL dịch vụ Render đã triển khai thành công.
-
-URL Pages của repo hiện được GitHub trả về là `https://thanhtech.cloud/Fashion-Manager/`.
-Vì vậy origin backend cần cho phép `https://thanhtech.cloud`; Blueprint và file `.env.render` đã bao gồm cả domain này và origin GitHub mặc định.
-
-## 1. Tự chạy với database Aiven thật
-
-Dùng Python 3.12 hoặc 3.13. Trên máy hiện tại dùng `py -3.13`; `py -3` đang trỏ tới Python 3.8.
-Chạy tại thư mục gốc repository:
-
-```powershell
-py -3.13 -m pip install -r backend/requirements.txt
-# Chỉ tạo .env nếu chưa có; không ghi đè cấu hình đang dùng.
+py -3.13 -m pip install -r requirements.txt
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Điền trong `.env`:
+Điền cấu hình MySQL trong `.env` bằng thông tin kết nối của dịch vụ đang dùng:
 
 ```dotenv
-DB_HOST=your-service.aivencloud.com
-DB_PORT=15000
+DB_HOST=<mysql-host>
+DB_PORT=<mysql-port>
 DB_NAME=quan_ly_chuoi_thoi_trang
-DB_USER=avnadmin
-DB_PASSWORD=your_password
+DB_USER=<mysql-user>
+DB_PASSWORD=<mysql-password>
+AUTH_TOKEN_SECRET=<private-random-secret-at-least-32-bytes>
 APP_CORS_ORIGINS=http://127.0.0.1:8080,http://localhost:8080
-# Nếu đã tải CA certificate từ Aiven:
 # DB_SSL_CA=C:/path/to/ca.pem
 ```
 
-Host, port và user phải lấy từ **Aiven → service MySQL → Overview → Connection information**.
-Port `15000` ở trên chỉ là ví dụ. `DB_NAME` phải là database đã chứa các bảng dự án.
-Không tự chạy các file có `DROP DATABASE` lên Aiven đang có dữ liệu.
+Tạo khóa riêng bằng `py -3.13 -c "import secrets; print(secrets.token_urlsafe(48))"` rồi dán
+vào `AUTH_TOKEN_SECRET`. Cấu hình local hiện đã được bổ sung khóa. Backend đọc `.env` ở gốc,
+ưu tiên biến môi trường của tiến trình nếu cùng tên. `DB_SSL_CA` bật xác minh chứng chỉ và
+hostname; kết nối MySQL từ xa luôn được kiểm tra có TLS.
 
 ```powershell
 py -3.13 scripts/verify_db.py
 py -3.13 scripts/dev.py
 ```
 
-Mở **http://127.0.0.1:8080**. API docs: **http://127.0.0.1:8000/docs**.
-Ctrl+C dừng cả hai server và khôi phục `frontend/config.js` trước đó.
-Nếu cổng 8000 đang dùng: `py -3.13 scripts/dev.py --api-port 8010`.
-Script không tự seed dữ liệu. Các số tổng quan phản ánh cả dữ liệu seed đã nhập trước đó nếu DB đang chứa chúng.
-
-### Dashboard quản lý cửa hàng
-
-Trang chủ giữ bố cục biểu đồ, phân bố và bảng chi tiết nhưng dùng dữ liệu nghiệp vụ:
-
-- 30 ngày gần nhất: số đơn hàng theo ngày và tổng giá trị `SUM(so_luong * don_gia_ban)`.
-- Theo giờ: số đơn trong 30 ngày, đọc `ngay_tao_don` theo giờ địa phương Việt Nam.
-- Sản phẩm theo danh mục: đếm sản phẩm thực tế, không thống kê điện thoại/máy tính.
-- Đơn hàng gần nhất: tối đa 50 đơn trên toàn bộ thời gian, kèm mã khách, cửa hàng, số lượng và tổng giá trị.
-
-API `/api/analytics/sales` chỉ đọc các bảng nghiệp vụ sẵn có. Không tạo lượt xem, không thu thập thiết bị/IP.
-Khi chưa có đơn trong khoảng 30 ngày thì biểu đồ bằng 0; các đơn cũ vẫn có trong bảng gần nhất.
-Khi DB lỗi, giao diện hiển thị lỗi thay vì thay bằng số 0 hoặc dữ liệu mẫu.
-
-Mở terminal thứ hai để kiểm tra:
+Mở http://127.0.0.1:8080. API docs: http://127.0.0.1:8000/docs.
+Đăng nhập tài khoản admin trong database hiện tại bằng điện thoại `0912000000`, mật khẩu `NV000`.
+Script chờ API sẵn sàng, phục vụ config local trong bộ nhớ, không thay file config deploy,
+và dừng cả hai server khi Ctrl+C. Khi đổi cổng:
 
 ```powershell
-py -3.13 -m pytest backend/tests -q
-node --test frontend/tests/api.test.cjs
-py -3.13 scripts/smoke_api.py
-# Nếu chọn --api-port 8010:
-py -3.13 scripts/smoke_api.py --url http://127.0.0.1:8010
+py -3.13 scripts/dev.py --api-port 8010 --frontend-port 8081
 ```
 
-Frontend tests cần Node.js 22+. Có thể chạy `./scripts/test.ps1` để chạy unit tests; script ghi rõ nếu thiếu Node.
-Smoke test kiểm tra cả CORS cho origin frontend và đọc các endpoint thật; không ghi dữ liệu.
+URL giao diện khi đó là http://127.0.0.1:8081. CORS và config tự dùng cổng mới.
+`FRONTEND_API_URL` không điều khiển `scripts/dev.py`; script này ưu tiên backend local.
 
-## 2. Backend trên Render
+## 2. Schema và dữ liệu
 
-1. Đưa thay đổi code lên GitHub.
-2. Tại Render, chọn **New → Blueprint**, kết nối repository và dùng `render.yaml`.
-3. Điền `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` lấy từ Aiven.
-4. `APP_CORS_ORIGINS=https://levietthanh1412.github.io` đã có trong Blueprint. CORS là origin, không thêm `/Fashion-Manager`. Nếu dùng domain khác, sửa lại biến này trên backend.
-5. Có thể thêm **Secret File** tên `ca.pem`, dán CA certificate từ Aiven và thêm biến `DB_SSL_CA=/etc/secrets/ca.pem`. Khi có CA, backend xác minh cả chứng chỉ và hostname. Kết nối MySQL từ xa luôn phải được mã hóa TLS, kể cả chưa cấu hình CA.
-6. Chờ service chạy rồi mở `https://<ten-service>.onrender.com/health` và `/api/health/db`. Cả hai phải trả `status: ok`.
+Backend hiện tương thích bộ schema `sql/data/1.TaoCoSoDuLieu.sql`, seed
+`sql/data/2.ThemDuLieu.sql`, rồi migration vai trò `sql/data/3.UpdateDeleteRangBuoc.sql`.
+Hai file đầu có thao tác reset, chỉ dùng khi tạo database demo mới. Migration vai trò chạy
+một lần nếu chưa có các cột `quyen_han`, `khu_vuc_quan_ly`.
 
-Giữ **Root Directory trống** vì backend đọc SQL từ `sql/app` và `sql/query` ngoài thư mục `backend`.
-Nếu tạo Web Service thủ công thay vì Blueprint:
+Database local đang cấu hình đã có schema và dữ liệu, không cần khởi tạo lại.
+Bộ `sql/schema/` + `sql/data/01_seed.sql` là bộ khác, không dùng lẫn với backend hiện tại.
+Giá sản phẩm là `gia_san_pham`; chi tiết đơn không lưu đơn giá lúc bán. Doanh thu dashboard
+được ước tính theo giá hiện tại. Analytics lượt truy cập là chức năng legacy, không cần
+migration đó để chạy dashboard bán hàng.
+
+## 3. Kiểm tra
+
+```powershell
+./scripts/test.ps1
+py -3.13 scripts/check_queries.py
+py -3.13 scripts/smoke_api.py
+```
+
+Frontend tests cần Node.js 22+. `scripts/test.ps1` thông báo nếu thiếu Node.
+Để xác minh thêm đăng nhập và đọc dữ liệu theo vai trò:
+
+```powershell
+$env:SMOKE_PHONE = '0912000000'
+$env:SMOKE_PASSWORD = 'NV000'
+py -3.13 scripts/smoke_api.py --login
+Remove-Item Env:SMOKE_PHONE, Env:SMOKE_PASSWORD
+```
+
+Kiểm tra API cổng khác:
+
+```powershell
+py -3.13 scripts/smoke_api.py --url http://127.0.0.1:8010 --origin http://127.0.0.1:8081
+```
+
+Smoke không ghi dữ liệu nghiệp vụ. Mặc định nó kiểm tra API công khai, HTTP 401 ở endpoint
+được bảo vệ và CORS preflight. `--login` kiểm tra token, `/me`, dữ liệu phù hợp vai trò và
+các trường hợp HTTP 403. Không in token/mật khẩu.
+
+## 4. Backend trên Render
+
+Dùng `render.yaml` hoặc cấu hình một Python Web Service với các giá trị từ project:
 
 ```text
+Root Directory: để trống
 Build Command: pip install -r backend/requirements.txt
 Start Command: python -m uvicorn main:app --app-dir backend --host 0.0.0.0 --port $PORT
 Health Check Path: /health
 ```
 
-## 3. Frontend qua GitHub Actions → GitHub Pages
+Gốc project phải còn `sql/app/` và `sql/query/`, nên không đặt Root Directory thành `backend`.
+Cấp các biến `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `AUTH_TOKEN_SECRET`
+trực tiếp cho tiến trình Render. GitHub Secrets không tự truyền sang Render.
 
-1. Repository → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-2. **Settings → Secrets and variables → Actions**: đặt `FRONTEND_API_URL` bằng URL HTTPS của backend Render, ví dụ `https://your-api.onrender.com`. Có thể để ở **Secrets** như cấu hình hiện tại hoặc **Variables**; workflow đọc cả hai, ưu tiên Variables nếu cùng tồn tại.
-3. Push nhánh `main`, hoặc **Actions → CI and deploy frontend → Run workflow**.
-4. Sau khi các job `test`, `build`, `deploy` thành công, mở `https://levietthanh1412.github.io/Fashion-Manager/`.
+`APP_CORS_ORIGINS` chứa origin frontend, ví dụ `https://ten-ban.github.io` hoặc domain riêng.
+Origin chỉ gồm scheme + hostname + port, không có đường dẫn repository.
+Backend hiện bổ sung các origin mặc định trong `backend/app/core/config.py`, bao gồm các cổng
+local 8080, 5500, 5173 và các domain đã có trong project.
 
-Không đặt `FRONTEND_API_URL` bằng hostname Aiven, URL GitHub Pages hoặc `localhost`. Biến này là URL **FastAPI** đang chạy.
-Workflow tạo `frontend/config.js` bằng JSON hợp lệ và từ chối URL thiếu, HTTP hoặc localhost.
-Artifact Pages chỉ chứa `frontend/`; không chứa `.env` hay mật khẩu DB.
+Có thể dùng `scripts/prepare_render_env.py` để tạo `.env.render` từ cấu hình local, kiểm tra
+nội dung riêng rồi nhập vào môi trường backend. File này và `.env` được `.gitignore` loại trừ.
+Nếu có CA, cấp secret file và đặt `DB_SSL_CA` tới đường dẫn file trên máy chủ.
 
-## 4. Workflow kiểm tra Aiven và lỗi trong ảnh
+Sau deploy, kiểm tra cả `/health`, `/api/health/db`, `/docs` và `POST /api/auth/login`.
+API sống nhưng DB chưa cấu hình vẫn có thể trả 200 tại `/health`; chỉ endpoint DB mới xác
+nhận đường kết nối database.
 
-`Verify Aiven database` chạy khi push `main` hoặc chạy thủ công trong Actions. Đây là kiểm tra tích hợp độc lập; lỗi Aiven vẫn báo đỏ và không giả lập kết quả thành công.
-Các secrets hiện có `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` được giữ nguyên cách dùng.
-`APP_CORS_ORIGINS` đọc được từ cả Secrets và Variables.
-Có thể thêm secret `DB_SSL_CA_CERT` chứa **nội dung** CA certificate để CI xác minh danh tính máy chủ giống backend.
+## 5. Frontend qua GitHub Pages
 
-`Name or service not known` có nghĩa runner không phân giải được hostname. Việc secret đã tồn tại không xác nhận nội dung host đúng.
-Backend xử lý khoảng trắng, dấu nháy bao ngoài, hostname kèm port và phần host của URI `mysql://...`.
-Các trường user/password/database vẫn lấy riêng từ `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
-Nếu DNS tiếp tục lỗi, sửa giá trị secret `DB_HOST` bằng đúng **Host** trong Aiven Overview và kiểm tra service còn hoạt động.
-GitHub không cho đọc lại giá trị secret qua API, nên cần đối chiếu tại nơi cấu hình.
+Workflow `.github/workflows/deploy.yml` chạy test, tạo `frontend/config.js` bằng
+`scripts/build_frontend_config.py`, đóng gói `frontend/` rồi deploy Pages.
 
-| Dấu hiệu | Cần kiểm tra |
-| --- | --- |
-| DNS không phân giải | Host Aiven đúng, không phải tên hiển thị service; service còn tồn tại |
-| Timeout / connection refused | Port Aiven, service đang chạy, network/IP allowlist |
-| Access denied | User/password/quyền trên database |
-| Unknown database / table | DB_NAME và schema thực tế; không tự reset database |
-| Lỗi chứng chỉ TLS | CA đúng project Aiven và DB_HOST đúng hostname chứng chỉ |
-| Pages tải được nhưng không có dữ liệu | Backend đang chạy; FRONTEND_API_URL là URL FastAPI; CORS cho phép origin Pages |
+Cấu hình Actions Variable hoặc Secret `FRONTEND_API_URL` bằng URL HTTPS backend thật;
+nếu cả hai tồn tại workflow ưu tiên Variable. Giá trị phải là URL FastAPI, không phải
+hostname MySQL hay URL frontend. Bộ tạo config từ chối URL thiếu, HTTP, localhost,
+private IP hoặc chứa thông tin đăng nhập.
 
-Kiểm tra sau deploy:
-
-```powershell
-py -3.13 scripts/smoke_api.py --url https://your-api.onrender.com --origin https://levietthanh1412.github.io
+```text
+FRONTEND_API_URL=https://<backend-da-deploy>
+APP_CORS_ORIGINS=https://<frontend-origin>
 ```
 
-Tài liệu nền tảng: [GitHub Pages custom workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages), [Render FastAPI](https://render.com/docs/deploy-fastapi), [Aiven MySQL](https://aiven.io/docs/products/mysql/howto/connect-with-python).
+Trong repo dùng workflow này, chọn nguồn Pages là GitHub Actions rồi push nhánh `main`
+hoặc chạy workflow thủ công. Artifact chỉ chứa frontend. Biến DB và khóa token ở backend.
+File `frontend/config.js` đang có fallback public `https://fashion-manager.onrender.com`;
+đây là giá trị trong source, chưa được xác minh là bản public hiện tại trong đợt làm việc này.
 
-## Vị trí nhập biến môi trường
+Sau deploy, có thể dùng:
 
-Biến `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` phải có trên **Render → service Fashion-Manager → Environment → Add from .env**. Dùng nội dung `.env.render`, rồi **Save, rebuild, and deploy**. GitHub Secrets không tự được chuyển sang Render.
+```powershell
+py -3.13 scripts/smoke_api.py --url https://<backend-da-deploy> --origin https://<frontend-origin>
+```
 
-`frontend/config.js` hiện được commit với URL API công khai `https://fashion-manager.onrender.com`. Workflow vẫn tạo lại file từ `FRONTEND_API_URL`, kiểm tra cú pháp trước khi upload và kiểm tra HTTP sau deploy. `.env` và `.env.render` luôn được giữ ngoài Git.
+`scripts/connect_backend.py` còn có khả năng đồng bộ cấu hình GitHub và kích hoạt workflow.
+Chỉ chạy khi đã chọn đúng repository và chủ động muốn thay đổi cấu hình/deploy đó.
+
+## 6. Workflow kiểm tra Aiven
+
+`.github/workflows/verify-aiven.yml` dùng Secrets/Variables `DB_HOST`, `DB_PORT`, `DB_NAME`,
+`DB_USER`, `DB_PASSWORD`. Có thể thêm `DB_SSL_CA_CERT` chứa nội dung CA.
+Nó kiểm tra database chỉ đọc rồi dùng cùng hàm smoke như local. Các endpoint yêu cầu token
+được kiểm tra phải trả 401 khi chưa đăng nhập, thay vì xem đó là lỗi kết nối.
+
+## 7. Chẩn đoán lỗi
+
+| Dấu hiệu | Kiểm tra |
+| --- | --- |
+| Không mở được frontend local | Terminal dev còn chạy, đúng cổng, không mở HTML bằng `file://` |
+| API login HTTP 503 do khóa token | `AUTH_TOKEN_SECRET` có ít nhất 32 byte trên backend; khởi động lại sau khi sửa |
+| Login HTTP 401 | Điện thoại tồn tại trong DB; mật khẩu đúng mã nhân viên |
+| API HTTP 403 | Tài khoản có quyền chức năng và phạm vi cửa hàng/khu vực phù hợp |
+| Login HTTP 404 | URL trỏ sai backend hoặc backend chưa có phiên bản API đăng nhập |
+| Không gọi được API/CORS | URL FastAPI đúng, backend hoạt động, origin frontend được phép |
+| DNS không phân giải | DB_HOST là hostname dịch vụ còn hoạt động, không phải tên hiển thị |
+| Timeout hoặc connection refused | DB_PORT, dịch vụ MySQL, network/allowlist |
+| Access denied | Tài khoản/mật khẩu DB và quyền trên database |
+| Unknown database/table/column | DB_NAME và bộ schema hiện tại; không tự chạy lại seed/reset |
+| Lỗi TLS | CA và hostname khớp cấu hình dịch vụ |
+| Pages hiển thị nhưng số liệu không tải | Config.js đã trỏ đúng backend HTTPS, DB health, CORS, phiên đăng nhập |

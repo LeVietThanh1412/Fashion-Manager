@@ -1,0 +1,149 @@
+{
+  "rows": {
+    "danh_muc": 24,
+    "cua_hang": 24,
+    "san_pham": 240,
+    "nhan_vien": 120,
+    "khach_hang": 240,
+    "phan_phoi": 119,
+    "chi_tiet_phan_phoi": 5636,
+    "don_hang": 1200,
+    "chi_tiet_don_hang": 4200
+  },
+  "minimum_stock": 0,
+  "sold_out_pairs": 1,
+  "one_left_pairs": 1,
+  "anchor_date_vietnam": "2026-10-23",
+  "before_counts": {
+    "danh_muc": 0,
+    "cua_hang": 0,
+    "san_pham": 0,
+    "nhan_vien": 0,
+    "khach_hang": 0,
+    "phan_phoi": 0,
+    "chi_tiet_phan_phoi": 0,
+    "don_hang": 0,
+    "chi_tiet_don_hang": 0
+  },
+  "constraints": [
+    {
+      "case": "PK trùng",
+      "rejected": true,
+      "error_code": 1062
+    },
+    {
+      "case": "FK không tồn tại",
+      "rejected": true,
+      "error_code": 1452
+    },
+    {
+      "case": "CHECK giá âm",
+      "rejected": true,
+      "error_code": 3819
+    },
+    {
+      "case": "CHECK số lượng 0",
+      "rejected": true,
+      "error_code": 3819
+    },
+    {
+      "case": "CHECK giá bán âm",
+      "rejected": true,
+      "error_code": 3819
+    },
+    {
+      "case": "UNIQUE số điện thoại",
+      "rejected": true,
+      "error_code": 1062
+    },
+    {
+      "case": "UNIQUE biến thể sản phẩm",
+      "rejected": true,
+      "error_code": 1062
+    },
+    {
+      "case": "UNIQUE sản phẩm trong đơn",
+      "rejected": true,
+      "error_code": 1062
+    },
+    {
+      "case": "NOT NULL họ tên",
+      "rejected": true,
+      "error_code": 1048
+    },
+    {
+      "case": "FK chặn xóa sản phẩm được tham chiếu",
+      "rejected": true,
+      "error_code": 1451
+    },
+    {
+      "case": "PK ghép trùng",
+      "rejected": true,
+      "error_code": 1062
+    }
+  ],
+  "query_results": {
+    "M01_Q01": 119,
+    "M01_Q02": 110,
+    "M01_Q03": 24,
+    "M01_Q04": 1,
+    "M01_Q05": 95,
+    "M01_Q06": 240,
+    "M01_Q07": 24,
+    "M01_Q08": 15,
+    "M01_Q09": 61,
+    "M01_Q10": 3,
+    "M02_Q01": 120,
+    "M02_Q02": 20,
+    "M02_Q03": 24,
+    "M02_Q04": 20,
+    "M02_Q05": 96,
+    "M02_Q06": 24,
+    "M02_Q07": 33,
+    "M02_Q08": 15,
+    "M02_Q09": 120,
+    "M02_Q10": 9,
+    "M03_Q01": 5051,
+    "M03_Q02": 119,
+    "M03_Q03": 5,
+    "M03_Q04": 119,
+    "M03_Q05": 1,
+    "M03_Q06": 20,
+    "M03_Q07": 5060,
+    "M03_Q08": 1,
+    "M03_Q09": 1,
+    "M03_Q10": 24,
+    "M04_Q01": 177,
+    "M04_Q02": 195,
+    "M04_Q03": 7,
+    "M04_Q04": 483,
+    "M04_Q05": 200,
+    "M04_Q06": 12,
+    "M04_Q07": 30,
+    "M04_Q08": 800,
+    "M04_Q09": 3254,
+    "M04_Q10": 4,
+    "M05_Q01": 20,
+    "M05_Q02": 200,
+    "M05_Q03": 40,
+    "M05_Q04": 220,
+    "M05_Q05": 20,
+    "M05_Q06": 21,
+    "M05_Q07": 21,
+    "M05_Q08": 210,
+    "M05_Q09": 210,
+    "M05_Q10": 240
+  },
+  "after_counts": {
+    "danh_muc": 24,
+    "cua_hang": 24,
+    "san_pham": 240,
+    "nhan_vien": 120,
+    "khach_hang": 240,
+    "phan_phoi": 119,
+    "chi_tiet_phan_phoi": 5636,
+    "don_hang": 1200,
+    "chi_tiet_don_hang": 4200
+  },
+  "backup": "logs\\backups\\before-rich-data-20261023T084028Z.json"
+}

@@ -67,6 +67,22 @@
           <i data-lucide="store" class="w-4 h-4 text-zinc-500"></i>
           <span>Thông tin chung</span>
         </button>
+        <button onclick="switchTab('employees')" data-tab="employees" class="nav-btn hidden w-full items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900 transition-colors">
+          <i data-lucide="users" class="w-4 h-4 text-zinc-500"></i>
+          <span>Nhân sự & phân quyền</span>
+        </button>
+        <button onclick="switchTab('queries')" data-tab="queries" class="nav-btn hidden w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900 transition-colors">
+          <i data-lucide="database" class="w-4 h-4 text-zinc-500"></i>
+          <span>Truy vấn dữ liệu</span>
+        </button>
+        <button onclick="switchTab('orders')" data-tab="orders" class="nav-btn hidden w-full items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900 transition-colors">
+          <i data-lucide="shopping-cart" class="w-4 h-4 text-zinc-500"></i>
+          <span>Tạo đơn hàng</span>
+        </button>
+        <button onclick="switchTab('distribution')" data-tab="distribution" class="nav-btn hidden w-full items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900 transition-colors">
+          <i data-lucide="boxes" class="w-4 h-4 text-zinc-500"></i>
+          <span>Số lượng phân phối</span>
+        </button>
       </nav>
     </div>
 
@@ -88,6 +104,10 @@
           <i data-lucide="rocket" id="syncIcon" class="w-3.5 h-3.5"></i>
           <span id="syncBtnText">Tải lại dữ liệu</span>
         </button>
+        <div id="accountActions" class="hidden mt-3 border-t border-zinc-300/70 pt-3">
+          <p id="accountLabel" class="text-[11px] text-zinc-600 mb-2"></p>
+          <button onclick="logout()" class="w-full text-xs text-zinc-700 hover:text-zinc-950 py-1">Đăng xuất</button>
+        </div>
       </div>
     </div>
   </aside>
@@ -97,7 +117,21 @@
 
   <!-- MAIN CONTENT AREA -->
   <main class="flex-1 h-full overflow-y-auto px-4 sm:px-7 py-5 md:py-6">
-    <div class="max-w-[1180px] mx-auto space-y-5">
+    <section id="authPanel" class="max-w-[640px] w-full mx-auto mt-8 bg-[#f5f5f3] border border-zinc-200/90 rounded-[18px] p-5 sm:p-6 shadow-[0_1px_0_rgba(0,0,0,0.02)]">
+      <h2 class="text-[20px] sm:text-[22px] font-semibold text-zinc-900 leading-tight">Đăng nhập Fashion Manager</h2>
+      <p class="text-[15px] text-zinc-500 mt-2 mb-5 leading-relaxed">Đăng nhập bằng số điện thoại; mật khẩu là mã nhân viên.</p>
+      <form id="loginForm" class="space-y-4">
+        <label class="block text-[16px] text-zinc-700 font-medium">Số điện thoại
+          <input id="loginPhone" type="tel" placeholder="Số điện thoại nhân viên" required autocomplete="username" class="mt-2 w-full rounded-xl border border-zinc-300 bg-[#e6f0f7] px-3.5 py-3 text-[17px] text-zinc-900 focus:border-[#8bb1ca] focus:outline-none">
+        </label>
+        <label class="block text-[16px] text-zinc-700 font-medium">Mật khẩu
+          <input id="loginPassword" placeholder="Mã nhân viên" type="password" required autocomplete="current-password" class="mt-2 w-full rounded-xl border border-zinc-300 bg-[#e6f0f7] px-3.5 py-3 text-[17px] text-zinc-900 focus:border-[#8bb1ca] focus:outline-none">
+        </label>
+        <p id="loginStatus" role="status" class="text-[15px] text-red-600 min-h-[22px]"></p>
+        <button id="loginSubmit" type="submit" class="w-full rounded-xl bg-zinc-900 text-white py-3 text-[18px] font-semibold leading-none shadow-sm hover:bg-zinc-800 transition-colors disabled:opacity-50">Đăng nhập</button>
+      </form>
+    </section>
+    <div id="dashboardContent" class="hidden max-w-[1180px] mx-auto space-y-5">
 
       <!-- TAB 1: ANALYTICS / TRANG CHỦ (Default, matches screenshot) -->
       <div id="tab-analytics" class="space-y-5">
@@ -139,7 +173,7 @@
           <section class="lg:col-span-7 bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div class="mb-6">
               <h2 class="text-[15px] font-semibold text-zinc-900">Theo giờ trong ngày</h2>
-              <p class="text-[12.5px] text-zinc-500 mt-0.5">Đơn hàng 30 ngày gần nhất, theo giờ Việt Nam</p>
+              <p class="text-[12.5px] text-zinc-500 mt-0.5">Đơn hàng 30 ngày gần nhất, theo giờ Việt Nam. Doanh thu ước tính theo giá sản phẩm hiện tại.</p>
             </div>
 
             <div class="pt-4">
@@ -181,7 +215,7 @@
                   <th class="py-3 px-4 font-normal w-[240px]">Mã khách hàng</th>
                   <th class="py-3 px-4 font-normal w-[220px]">Cửa hàng</th>
                   <th class="py-3 px-4 font-normal w-[150px]">Số lượng</th>
-                  <th class="py-3 pl-4 font-normal">Tổng giá trị</th>
+                  <th class="py-3 pl-4 font-normal">Doanh thu ước tính</th>
                 </tr>
               </thead>
               <tbody id="orderLogBody" class="divide-y divide-zinc-200/60 text-[13px] align-top">
@@ -209,7 +243,7 @@
                 <tr class="border-b border-zinc-200 text-zinc-500 text-[12.5px]">
                   <th class="py-3 pr-4 font-normal">Tên sản phẩm</th>
                   <th class="py-3 px-4 font-normal">Màu sắc · Kích cỡ</th>
-                  <th class="py-3 px-4 font-normal">Giá bán</th>
+                  <th class="py-3 px-4 font-normal">Giá sản phẩm</th>
                   <th class="py-3 pl-4 font-normal">Mã DM</th>
                 </tr>
               </thead>
@@ -272,6 +306,108 @@
       </div>
 
 
+      </div>
+
+      <div id="tab-employees" class="hidden space-y-5">
+        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="text-[16px] font-semibold text-zinc-900">Nhân sự & phân quyền</h2>
+              <p id="employeeScope" class="text-sm text-zinc-500 mt-1"></p>
+            </div>
+            <button onclick="loadEmployees()" class="rounded-lg border px-3 py-2 text-sm">Tải lại</button>
+          </div>
+          <p id="employeeStatus" role="status" class="text-sm text-zinc-500 mb-3"></p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm min-w-[900px]">
+              <thead><tr class="border-b text-zinc-500">
+                <th class="py-2 pr-3">Nhân viên</th><th class="px-3">Vai trò</th>
+                <th class="px-3">Cửa hàng / khu vực</th><th class="px-3">Lương</th>
+                <th class="pl-3">Thao tác</th>
+              </tr></thead>
+              <tbody id="employeeTableBody" class="divide-y"></tbody>
+            </table>
+          </div>
+        </section>
+        <section id="employeeCreatePanel" class="hidden bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6">
+          <h3 class="font-semibold text-zinc-900 mb-4">Thêm nhân sự</h3>
+          <form id="employeeForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input id="employeeId" required maxlength="20" placeholder="Mã nhân viên" class="rounded-lg border px-3 py-2 text-sm">
+            <input id="employeeName" required maxlength="255" placeholder="Họ tên" class="rounded-lg border px-3 py-2 text-sm">
+            <input id="employeePhone" required maxlength="25" placeholder="Số điện thoại" class="rounded-lg border px-3 py-2 text-sm">
+            <input id="employeeEmail" required type="email" maxlength="255" placeholder="Email" class="rounded-lg border px-3 py-2 text-sm">
+            <select id="employeeRole" class="rounded-lg border px-3 py-2 text-sm"></select>
+            <select id="employeeStore" class="rounded-lg border px-3 py-2 text-sm"></select>
+            <select id="employeeRegion" class="hidden rounded-lg border px-3 py-2 text-sm">
+              <option value="1">Miền Bắc</option><option value="2">Miền Trung</option><option value="3">Miền Nam</option>
+            </select>
+            <input id="employeeSalary" type="number" min="1" step="1" required placeholder="Lương" class="rounded-lg border px-3 py-2 text-sm">
+            <button class="sm:col-span-2 rounded-lg bg-zinc-900 text-white py-2.5 text-sm font-medium">Tạo tài khoản</button>
+          </form>
+          <p id="employeeFormStatus" role="status" class="text-sm mt-3"></p>
+          <p class="text-xs text-zinc-500 mt-2">Mật khẩu ban đầu là mã nhân viên. Lương là số nguyên dương theo ràng buộc database hiện tại.</p>
+        </section>
+      </div>
+
+      <div id="tab-queries" class="hidden space-y-5">
+        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6">
+          <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div>
+              <h2 class="text-[16px] font-semibold text-zinc-900">Truy vấn dữ liệu</h2>
+              <p class="text-sm text-zinc-500 mt-1">Chạy các truy vấn đã khai báo trong bộ truy vấn hiện tại. Chỉ tài khoản admin được sử dụng.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 sm:min-w-[420px]">
+              <label for="querySelect" class="sr-only">Chọn truy vấn</label>
+              <select id="querySelect" class="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm">
+                <option value="">Đang tải danh sách truy vấn...</option>
+              </select>
+              <button id="runQueryBtn" onclick="runAcademicQuery()" disabled class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+                Chạy truy vấn
+              </button>
+            </div>
+          </div>
+          <p id="queryStatus" role="status" class="text-sm text-zinc-500 mt-4">Chọn một truy vấn để xem kết quả.</p>
+          <div class="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+            <table class="min-w-full text-left text-sm">
+              <thead id="queryResultHead" class="bg-zinc-50 text-zinc-600"></thead>
+              <tbody id="queryResultBody" class="divide-y divide-zinc-100"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div id="tab-orders" class="hidden space-y-5">
+        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6 max-w-2xl">
+          <h2 class="text-[16px] font-semibold text-zinc-900">Tạo đơn hàng</h2>
+          <p class="text-sm text-zinc-500 mt-1 mb-5">Đơn được ghi nhận dưới tài khoản nhân viên đang đăng nhập. Database chỉ lưu sản phẩm và số lượng; giá lịch sử không được lưu.</p>
+          <form id="orderForm" class="space-y-3">
+            <label class="block text-sm text-zinc-700">Khách hàng
+              <select id="orderCustomer" required class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"></select>
+            </label>
+            <label class="block text-sm text-zinc-700">Sản phẩm
+              <select id="orderProduct" required class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"></select>
+            </label>
+            <label class="block text-sm text-zinc-700">Số lượng
+              <input id="orderQuantity" type="number" min="1" value="1" required class="mt-1 w-full rounded-lg border px-3 py-2 text-sm">
+            </label>
+            <p id="orderStatus" role="status" class="text-sm"></p>
+            <button class="rounded-lg bg-zinc-900 text-white px-4 py-2.5 text-sm font-medium">Tạo đơn</button>
+          </form>
+        </section>
+      </div>
+
+      <div id="tab-distribution" class="hidden space-y-5">
+        <section class="bg-[#f8f8f7] border border-zinc-200/90 rounded-xl p-5 sm:p-6">
+          <h2 class="text-[16px] font-semibold text-zinc-900">Số lượng đã phân phối tại cửa hàng</h2>
+          <p class="text-xs text-amber-700 mt-1">Đây là tổng số lượng trong phiếu phân phối, không phải tồn kho hiện tại.</p>
+          <p id="distributionStatus" role="status" class="text-sm text-zinc-500 mt-3"></p>
+          <div class="overflow-x-auto mt-3">
+            <table class="w-full text-left text-sm">
+              <thead><tr class="border-b text-zinc-500"><th class="py-2 pr-3">Sản phẩm</th><th class="px-3">Mã SP</th><th class="pl-3">Đã phân phối</th></tr></thead>
+              <tbody id="distributionTableBody" class="divide-y"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
     </div>

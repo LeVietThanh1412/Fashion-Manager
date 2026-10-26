@@ -1,0 +1,114 @@
+.
+BÀI TẬP LỚN CUỐI KỲ – MÔN CƠ SỞ DỮ LIỆU
+I. Mục tiêu
+Sau khi hoàn thành bài tập lớn, sinh viên cần thể hiện được khả năng:
+1.	Phân tích một bài toán quản lý thực tế.
+2.	Xác định các thực thể, thuộc tính, mối quan hệ và các ràng buộc.
+3.	Xây dựng mô hình ER.
+4.	Chuyển từ mô hình ER sang mô hình quan hệ.
+5.	Xác định khóa chính, khóa ngoại và các ràng buộc toàn vẹn.
+6.	Phân tích phụ thuộc hàm.
+7.	Kiểm tra các quan hệ có đạt BCNF hay không và thực hiện phân rã khi cần.
+8.	Cài đặt CSDL trên một hệ quản trị CSDL SQL Server
+9.	Thực hiện các thao tác DDL, DML và truy vấn SQL.
+10.	Khai thác CSDL thông qua các truy vấn từ cơ bản đến nâng cao.
+II. Nội dung
+PHẦN 1. PHÂN TÍCH VÀ THIẾT KẾ CƠ SỞ DỮ LIỆU
+1.1. Nêu bài toán
+Sinh viên lựa chọn một bài toán quản lý thực tế.
+Ví dụ:
+•	Quản lý thư viện
+•	Quản lý bán hàng
+•	Quản lý cửa hàng điện thoại
+•	Quản lý bệnh viện
+•	Quản lý khách sạn
+•	Quản lý nhà hàng
+•	Quản lý trường đại học
+•	Quản lý đăng ký học phần
+•	Quản lý rạp chiếu phim
+•	Quản lý phòng gym
+•	Quản lý kho
+•	Quản lý vận chuyển
+•	Quản lý đặt vé máy bay
+Yêu cầu
+Trình bày:
+a. Mục đích của hệ thống
+Hệ thống được xây dựng nhằm quản lý vấn đề gì?
+b. Đối tượng quản lý
+Hệ thống quản lý những đối tượng nào?
+c. Các nghiệp vụ chính
+Ví dụ với hệ thống quản lý thư viện:
+•	Quản lý độc giả.
+•	Quản lý sách.
+•	Quản lý tác giả.
+•	Quản lý thể loại.
+•	Quản lý việc mượn/trả sách.
+•	Quản lý tiền phạt.
+•	Tra cứu sách.
+•	Thống kê sách được mượn nhiều nhất.
+d. Các quy tắc nghiệp vụ
+Đây là phần rất quan trọng vì nó làm cơ sở cho việc xây dựng mô hình ER.
+Ví dụ:
+•	Một độc giả có thể mượn nhiều cuốn sách.
+•	Một cuốn sách có thể được mượn nhiều lần theo thời gian.
+•	Mỗi lần mượn phải xác định ngày mượn và ngày trả.
+•	Một lần mượn có thể gồm nhiều cuốn sách.
+•	Một cuốn sách thuộc một hoặc nhiều thể loại.
+•	Một tác giả có thể viết nhiều cuốn sách.
+•	Sinh viên được phép thi nhiều lần, điểm thi của mỗi lần thi đều được lưu lại. ĐIểm thi cao nhất sẽ được dùng để tính điểm tổng kết. Điểm thi lần đầu sẽ được dùng để tính điểm xét học bổng.
+•	Một giáo viên có thể dạy nhiều môn học.
+1.2. Xác định các thực thể và thuộc tính
+Sinh viên lập danh sách các thực thể của hệ thống: tên thực thể, thuộc tính của thuộc tính, chỉ ra các các thuộc tính phức hợp hoặc đa trị
+1.3. Xác định các mối liên kết
+Sinh viên phải xác định các mối liên kết giữa các thực thể, thuộc tính của mối liên kết nếu có.
+1.4. Xây dựng mô hình ER
+Sinh viên xây dựng sơ đồ ER hoàn chỉnh. Sinh viên có thể lựa họn một phần mềm phù hợp để xây dựng mô hình ER.
+Yêu cầu sinh viên biểu diễn quá trình tinh chỉnh mô hình ER, từ ER mở rộng đến ER hạn chế. Sinh viên phải giải thích được mô hình, 
+Ví dụ: Thực thể Độc giả có quan hệ 1–N với PhiếuMượn vì một độc giả có thể lập nhiều phiếu mượn, nhưng mỗi phiếu mượn chỉ thuộc về một độc giả.
+Yêu cầu: 1 nhóm 5 sinh viên thì mô hình ER phải có ít nhất 8 thực thể, ít nhất 7 mối liên kết.
+1.5. Chuyển mô hình ER sang mô hình quan hệ
+Từ mô hình ER, sinh viên xây dựng các quan hệ: chỉ rõ có quan hệ gì, thuộc tính của quan hệ, khóa chính, khóa ngoại của quan hệ.
+1.6. Xác định các phụ thuộc hàm
+Các phụ thuộc hàm được xây dựng dựa trên nghiệp vụ của mục 1.1
+1.7. Kiểm tra chuẩn BCNF
+Kiểm tra mỗi quan hệ đã đạt chuẩn BCNF chưa? Nếu không đạt BCNF, sinh viên phải thực hiện phân rã quan hệ.
+PHẦN 2. CÀI ĐẶT VÀ KHAI THÁC CƠ SỞ DỮ LIỆU
+2.1. Tạo CSDL
+Sinh viên phải viết lệnh SQL để:
+•	Tạo database.
+•	Tạo các bảng.
+•	Tạo Primary Key.
+•	Tạo Foreign Key.
+2.2. Nhập dữ liệu
+Sinh viên phải xây dựng dữ liệu đủ lớn để có thể kiểm thử các truy vấn.
+Mỗi quan hệ phải có ít nhất 20 bản ghi.
+Dữ liệu phải có:
+•	Trường hợp bình thường.
+•	Một số trường hợp biên (trường hợp đặc biệt)
+•	Dữ liệu trùng ở một số thuộc tính không khóa.
+•	Dữ liệu đủ để các câu truy vấn trả về nhiều kết quả.
+UPDATE: Cập nhật dữ liệu.
+DELETE: Xóa dữ liệu.
+Sinh viên phải minh họa việc các ràng buộc toàn vẹn ngăn chặn dữ liệu không hợp lệ.
+Ví dụ:
+•	Thêm bản ghi có khóa trùng.
+•	Thêm khóa ngoại không tồn tại.
+•	Nhập giá trị vi phạm CHECK.
+2.3. Khai thác CSDL bằng truy vấn SQL
+Mỗi sinh viên tối thiểu 10 câu truy vấn, được chia thành các mức độ.
+Mức 1 – Truy vấn cơ bản
+Ví dụ:
+1.	Hiển thị toàn bộ danh sách sinh viên.
+2.	Hiển thị các sinh viên thuộc một lớp.
+3.	Tìm các sản phẩm có giá lớn hơn X.
+4.	Sắp xếp dữ liệu theo một thuộc tính.
+Mức 2 – Truy vấn nhiều bảng
+Mức 3 – Gom nhóm và thống kê, Truy vấn lồng nhau
+Yêu cầu sử dụng: GROUP BY, HAVING, COUNT, SUM, AVG, MIN, MAX, các hàm xử lý ngày tháng, các hàm xử lý chuỗi, UNION, INTERSECT, EXCEPT, truy vấn lồng nhau
+III. CẤU TRÚC BÁO CÁO
+Báo cáo gồm ít nhất 20 trang.
+Chương 1. Giới thiệu bài toán
+Chương 2. Phân tích và thiết kế CSDL
+Chương 3. Cài đặt và khai thác CSDL 
+
+

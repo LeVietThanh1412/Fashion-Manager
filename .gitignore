@@ -7,6 +7,7 @@ logs/
 
 .env
 .env.render
+env
 
 .vscode
 .pytest_cache
