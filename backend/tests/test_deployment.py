@@ -1,4 +1,5 @@
 from dataclasses import replace
+from contextlib import contextmanager
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,6 +10,25 @@ import app.db.connection as database
 from app.core.config import database_address
 from main import app
 from scripts.build_frontend_config import build_config
+
+
+def test_database_health_reports_schema_version_without_response_error(monkeypatch):
+    import main
+    cursor=MagicMock()
+    cursor.fetchone.return_value=('8.0.45',)
+    cursor.fetchall.return_value=[(3,)]
+    conn=MagicMock()
+    conn.cursor.return_value=cursor
+
+    @contextmanager
+    def connected():
+        yield conn
+
+    monkeypatch.setattr(main,'connection',connected)
+    with TestClient(app) as client:
+        response=client.get('/api/health/db')
+    assert response.status_code==200,response.text
+    assert response.json()=={'status':'ok','mysql_version':'8.0.45','schema_version':3}
 
 
 def test_default_cors_allows_the_deployed_frontend(monkeypatch):
@@ -84,6 +104,8 @@ def test_database_failure_returns_error_without_fake_products(monkeypatch):
 
     monkeypatch.setattr(main, 'connection', unavailable)
     monkeypatch.setattr(catalog, 'list_products', unavailable)
+    from app.core.authentication import get_current_user
+    app.dependency_overrides[get_current_user] = lambda: {'assignments':[{'permissions':['catalog.read'],'pham_vi':'system'}]}
     with TestClient(app) as client:
         assert client.get('/').json()['service'] == 'Fashion Manager API'
         assert client.head('/').status_code == 200
@@ -93,3 +115,4 @@ def test_database_failure_returns_error_without_fake_products(monkeypatch):
             assert response.status_code == 503
             assert 'items' not in response.json()
             assert 'sensitive' not in response.text
+    app.dependency_overrides.clear()

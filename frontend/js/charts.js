@@ -25,16 +25,22 @@ function clearSalesAnalytics(message) {
   document.getElementById('salesStatus').textContent = message;
   document.getElementById('salesRevenue').textContent = '—';
   ['chart30Days', 'chartHourly', 'categoryDistribution', 'orderLogBody'].forEach(id => renderMessage(document.getElementById(id), message));
-  ['chartFirstDate', 'chartMiddleDate'].forEach(id => { document.getElementById(id).textContent = '—'; });
+  ['chartFirstDate', 'chartMiddleDate', 'chartLastDate'].forEach(id => { document.getElementById(id).textContent = '—'; });
 }
 
 function renderSalesAnalytics(data) {
-  document.getElementById('salesTotal').textContent = `${new Intl.NumberFormat('vi-VN').format(data.total_orders)} đơn hàng trong 30 ngày gần nhất`;
-  document.getElementById('salesRevenue').textContent = `Doanh thu ước tính (giá hiện tại): ${formatVND(data.total_revenue)}`;
+  const periodText = data.period?.mode === 'latest_order' && data.period.end
+    ? `30 ngày đến ${salesDateLabel(data.period.end)} (ngày cuối có đơn)`
+    : '30 ngày gần nhất';
+  document.getElementById('salesPeriodTitle').textContent = `Đơn hàng ${periodText}`;
+  document.getElementById('hourlyPeriodDescription').textContent = `Đơn hàng ${periodText}, theo giờ Việt Nam. Doanh thu theo đơn giá và giảm giá đã lưu khi bán.`;
+  document.getElementById('salesTotal').textContent = `${new Intl.NumberFormat('vi-VN').format(data.total_orders)} đơn hàng trong ${periodText}`;
+  document.getElementById('salesRevenue').textContent = `Doanh thu: ${formatVND(data.total_revenue)}`;
   renderSalesBars('chart30Days', data.daily, item => salesDateLabel(item.date));
   renderSalesBars('chartHourly', data.hourly, item => `${item.hour}h`);
   document.getElementById('chartFirstDate').textContent = salesDateLabel(data.daily[0].date);
   document.getElementById('chartMiddleDate').textContent = salesDateLabel(data.daily[15].date);
+  document.getElementById('chartLastDate').textContent = salesDateLabel(data.daily[data.daily.length - 1].date);
   const distribution = document.getElementById('categoryDistribution');
   distribution.innerHTML = '';
   const totalProducts = data.categories.reduce((sum, item) => sum + item.count, 0);

@@ -1,3 +1,5 @@
+> T?i li?u l?u tr? tr??c schema v3; kh?ng d?ng l?nh ho?c m? h?nh b?n d??i ?? kh?i t?o. Xem [quy tr?nh hi?n h?nh](../README.md), [ERD](erd.md) v? [ph?n quy?n](permissions.md).
+
 # Manual test matrix
 
 `actual`, trạng thái và evidence chỉ được điền sau khi chạy thật. Chưa có MySQL CLI/server
@@ -15,11 +17,11 @@ trong môi trường audit nên các ca phụ thuộc DB hiện là `NOT RUN (My
 | MT08 | seed | seed | đếm `khach_hang` | >=20 | | NOT RUN | |
 | MT09 | seed | seed | đếm `don_hang` | >=20 | | NOT RUN | |
 | MT10 | seed | seed | đếm `chi_tiet_don_hang` | >=20 | | NOT RUN | |
-| MT11 | queries | seed | chạy member_01 | 10/10 query chạy | | NOT RUN | |
-| MT12 | queries | seed | chạy member_02 | 10/10 query chạy | | NOT RUN | |
-| MT13 | queries | seed | chạy member_03 | 10/10 query chạy | | NOT RUN | |
-| MT14 | queries | seed | chạy member_04 | 10/10 query chạy | | NOT RUN | |
-| MT15 | queries | seed | chạy member_05 | 10/10 query chạy | | NOT RUN | |
+| MT11 | queries | seed | chạy member_01 | 15/15 query chạy | | NOT RUN | |
+| MT12 | queries | seed | chạy member_02 | 15/15 query chạy | | NOT RUN | |
+| MT13 | queries | seed | chạy member_03 | 15/15 query chạy | | NOT RUN | |
+| MT14 | queries | seed | chạy member_04 | 15/15 query chạy | | NOT RUN | |
+| MT15 | queries | seed | chạy member_05 | 15/15 query chạy | | NOT RUN | |
 | MT16 | constraint | seed | insert duplicate PK | reject | | NOT RUN | |
 | MT17 | constraint | seed | insert unknown FK category | reject | | NOT RUN | |
 | MT18 | constraint | seed | insert quantity 0 | reject | | NOT RUN | |

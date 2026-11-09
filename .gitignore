@@ -1,14 +1,29 @@
-plans/
-*__pycache__/
-
-report/out/
-report/images
-logs/
-
+# Local environment files and credentials
 .env
-.env.render
-env
+.env.*
+!.env.example
+dev.local.env
 
-.vscode
-.pytest_cache
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
 .venv/
+venv/
+env/
+
+# Node.js
+node_modules/
+
+# Local temporary files and logs
+/tmp/
+/temp/
+logs/
+*.log
+
+# IDE settings
+.vscode/
+
+# Generated report output
+/reports/out/
+/reports/images/

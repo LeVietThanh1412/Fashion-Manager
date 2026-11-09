@@ -1,3 +1,5 @@
+> T?i li?u l?u tr? tr??c schema v3; kh?ng d?ng l?nh ho?c m? h?nh b?n d??i ?? kh?i t?o. Xem [quy tr?nh hi?n h?nh](../README.md), [ERD](erd.md) v? [ph?n quy?n](permissions.md).
+
 # Đối chiếu yêu cầu với bản triển khai
 
 Nguồn: `yeucau.txt`, `yeucaubaitoan.txt` và chỉ đạo dùng MySQL/phân quyền của người dùng. PDF GudJobs là tài liệu mẫu về bố cục báo cáo; giao diện ứng dụng dựa trên frontend có sẵn.
@@ -11,7 +13,7 @@ Nguồn: `yeucau.txt`, `yeucaubaitoan.txt` và chỉ đạo dùng MySQL/phân qu
 | Mỗi quan hệ ít nhất 20 dòng, dữ liệu trùng không khóa và trường hợp biên | sql/2.ThemDuLieu.sql |
 | UPDATE, DELETE và minh họa dữ liệu sai bị chặn | sql/3.UpdateDeleteRangBuoc.sql |
 | Cập nhật phân quyền trên CSDL cũ | sql/4.CapNhatPhanQuyen.sql |
-| 10 SELECT/thành viên, 5 thành viên | sql/query/member_01.sql đến member_05.sql |
+| 15 SELECT/thành viên, 5 thành viên | sql/query/member_01.sql đến member_05.sql |
 | CRUD danh mục, sản phẩm, cửa hàng | app/catalog.py; tab tương ứng |
 | Nhân sự, bổ nhiệm, hạ chức, lương/cấp bậc | app/employees.py; tab Nhân sự & phân quyền |
 | Người quản lý theo thời gian | lich_su_quan_ly; nút Lịch sử bổ nhiệm |

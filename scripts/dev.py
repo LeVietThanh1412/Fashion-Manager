@@ -1,5 +1,6 @@
 """Run API + static frontend together against the database in .env."""
 import functools
+import getpass
 import io
 import argparse
 import json
@@ -55,14 +56,14 @@ def wait_for_api(process: subprocess.Popen, api_url: str, timeout: float = 20) -
 
 
 def local_env_file() -> Path:
-    documented = ROOT / '.env'
-    return documented if documented.exists() else ROOT / 'env'
+    return ROOT / '.env'
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--api-port', type=int, default=8000)
     parser.add_argument('--frontend-port', type=int, default=8080)
+    parser.add_argument('--config', type=Path, help='Explicit env file for this local run')
     args = parser.parse_args()
     if not all(1 <= port <= 65535 for port in (args.api_port, args.frontend_port)):
         parser.error('Ports must be between 1 and 65535.')
@@ -70,13 +71,34 @@ def main() -> None:
         parser.error('API and frontend must use different ports.')
     if sys.version_info < (3, 10):
         raise SystemExit('Python 3.10+ required; use Python 3.12 or 3.13.')
-    env_file = local_env_file()
+    env_file = args.config or local_env_file()
     if not env_file.exists():
-        raise SystemExit('Create .env from .env.example and enter your Aiven connection settings first.')
+        raise SystemExit('Create a local config from .env.example or pass --config.')
     values = dotenv_values(env_file)
-    secret = os.environ.get('AUTH_TOKEN_SECRET', values.get('AUTH_TOKEN_SECRET') or '')
+    secret = (values.get('AUTH_TOKEN_SECRET') or '') if args.config else os.environ.get('AUTH_TOKEN_SECRET', values.get('AUTH_TOKEN_SECRET') or '')
     if len(secret.encode('utf-8')) < 32:
-        raise SystemExit('Set a private AUTH_TOKEN_SECRET of at least 32 bytes in .env before starting the login API.')
+        raise SystemExit(f'Set a private AUTH_TOKEN_SECRET of at least 32 bytes in {env_file} before starting the login API.')
+    environment = os.environ.copy()
+    if args.config:
+        environment.update({key:value for key,value in values.items() if value is not None})
+        if (values.get('APP_ENV') == 'development' and values.get('DB_HOST') in ('127.0.0.1','localhost','::1')):
+            if not environment.get('DB_PASSWORD'):
+                environment['DB_PASSWORD'] = getpass.getpass('Local MySQL password (hidden; type then Enter): ')
+            import mysql.connector
+            try:
+                with mysql.connector.connect(
+                    host=values['DB_HOST'],port=int(values['DB_PORT']),database=values['DB_NAME'],
+                    user=values['DB_USER'],password=environment['DB_PASSWORD'],connection_timeout=5
+                ) as database:
+                    cursor=database.cursor()
+                    cursor.execute('SELECT version FROM schema_version')
+                    if cursor.fetchall()!=[(3,)]:
+                        raise ValueError('The configured database does not have schema v3.')
+                    cursor.close()
+            except mysql.connector.Error as exc:
+                raise SystemExit(f'Cannot access the configured local MySQL database (error {exc.errno}). Check the password and dev.local.env.') from None
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from None
     api_url = f'http://127.0.0.1:{args.api_port}'
     with socket.socket() as probe:
         try:
@@ -92,7 +114,6 @@ def main() -> None:
         raise SystemExit('Frontend port already in use; stop the old frontend or pass --frontend-port 8081.') from exc
     process = None
     try:
-        environment = os.environ.copy()
         origins = environment.get('APP_CORS_ORIGINS', values.get('APP_CORS_ORIGINS') or '')
         environment['APP_CORS_ORIGINS'] = origins + (
             f',http://localhost:{args.frontend_port},http://127.0.0.1:{args.frontend_port}'

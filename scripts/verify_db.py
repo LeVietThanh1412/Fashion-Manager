@@ -9,9 +9,11 @@ from app.core.config import settings
 from app.db.connection import connection
 
 TABLES = (
-    'danh_muc', 'cua_hang', 'san_pham', 'nhan_vien', 'phan_phoi',
-    'chi_tiet_phan_phoi', 'khach_hang', 'don_hang', 'chi_tiet_don_hang',
+    'schema_version','khu_vuc','cua_hang','kho','nhan_vien','tai_khoan','vai_tro','quyen',
+    'vai_tro_quyen','phan_cong_quyen','phan_cong_lam_viec','chuc_vu','mau_san_pham','san_pham',
+    'ton_kho','bien_dong_kho','don_hang','chi_tiet_don_hang',
 )
+
 
 
 def main() -> int:
@@ -30,6 +32,10 @@ def main() -> int:
                 for table in TABLES:
                     cursor.execute(f'SELECT COUNT(*) FROM `{table}`')
                     print(f'PASS: {table} has {cursor.fetchone()[0]} rows')
+                cursor.execute('SELECT version FROM schema_version')
+                if cursor.fetchall() != [(3,)]:
+                    print('FAIL: backend requires schema v3; initialize a new database first.')
+                    return 1
             finally:
                 cursor.close()
     except Exception as exc:

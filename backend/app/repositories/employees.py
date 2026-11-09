@@ -1,226 +1,107 @@
-from pathlib import Path
-from typing import Any
+from fastapi import HTTPException
+from app.db.helpers import rows, transaction
+from app.permissions import check_store, check_employee, employee_scope
+from app.repositories.catalog import list_stores as scoped_stores
+from app.core.phone import normalize_phone
+import mysql.connector
 
-from app.core.roles import role_from_database, role_to_database
-from app.db.connection import connection
-from app.db.query_loader import QueryLoader
-
-SQL_ROOT = Path(__file__).resolve().parents[3] / "sql" / "app"
-loader = QueryLoader(SQL_ROOT)
-
-
-def _scope(actor: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "actor_role": actor["quyen_han"],
-        "actor_region": actor["khu_vuc_quan_ly"],
-        "actor_store": actor["ma_cua_hang"],
-    }
+# Current workplace is for presentation only. Permission checks use EXISTS over history.
+_FIELDS = """nv.*,
+    (SELECT MIN(lv.ma_cua_hang) FROM phan_cong_lam_viec lv WHERE lv.ma_nhan_vien=nv.ma_nhan_vien AND lv.tu_ngay<=UTC_TIMESTAMP() AND (lv.den_ngay IS NULL OR UTC_TIMESTAMP()<lv.den_ngay)) AS current_store,
+    (SELECT GROUP_CONCAT(DISTINCT CONCAT(cv.ten_chuc_vu,' @ ',COALESCE(ch.ten_cua_hang,k.ten_kho)) SEPARATOR ', ') FROM phan_cong_lam_viec lv JOIN chuc_vu cv ON cv.ma_chuc_vu=lv.ma_chuc_vu LEFT JOIN cua_hang ch ON ch.ma_cua_hang=lv.ma_cua_hang LEFT JOIN kho k ON k.ma_kho=lv.ma_kho WHERE lv.ma_nhan_vien=nv.ma_nhan_vien AND lv.tu_ngay<=UTC_TIMESTAMP() AND (lv.den_ngay IS NULL OR UTC_TIMESTAMP()<lv.den_ngay)) AS positions_workplaces,
+    (SELECT GROUP_CONCAT(DISTINCT pc.ma_vai_tro ORDER BY pc.ma_vai_tro) FROM tai_khoan tk JOIN phan_cong_quyen pc ON pc.ma_tai_khoan=tk.ma_tai_khoan WHERE tk.ma_nhan_vien=nv.ma_nhan_vien AND pc.trang_thai='active' AND pc.thu_hoi_luc IS NULL AND pc.tu_ngay<=UTC_TIMESTAMP(6) AND (pc.den_ngay IS NULL OR UTC_TIMESTAMP(6)<pc.den_ngay)) AS roles"""
 
 
-def list_employees(actor: dict[str, Any]) -> list[dict[str, Any]]:
-    with connection() as conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute(
-                """
-                SELECT nv.ma_nhan_vien, nv.ho_ten, nv.so_dien_thoai, nv.email,
-                       nv.quyen_han, nv.khu_vuc_quan_ly, nv.ma_cua_hang,
-                       nv.luong, 'active' AS trang_thai, ch.ten_cua_hang,
-                       ch.khu_vuc AS store_region
-                FROM nhan_vien AS nv
-                LEFT JOIN cua_hang AS ch ON ch.ma_cua_hang = nv.ma_cua_hang
-                WHERE (
-                    %(actor_role)s = 'admin'
-                    OR (%(actor_role)s = 'regional_manager' AND ch.khu_vuc = %(actor_region)s)
-                    OR (%(actor_role)s = 'store_manager'
-                        AND nv.ma_cua_hang = %(actor_store)s
-                        AND nv.quyen_han = 'nhan_vien')
-                )
-                ORDER BY nv.ho_ten, nv.ma_nhan_vien
-                """,
-                _scope(actor),
-            )
-            return [_application_employee(row) for row in cursor.fetchall()]
-        finally:
-            cursor.close()
+def _display(row):
+    row['ma_cua_hang'] = row.pop('current_store')
+    row['quyen_han'] = row.get('roles') or 'unassigned'
+    row['ten_cua_hang'] = row['ma_cua_hang']
+    row['khu_vuc_quan_ly'] = None
+    return row
 
 
-def get_employee(employee_id: str) -> dict[str, Any] | None:
-    with connection() as conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute(
-                """
-                SELECT nv.ma_nhan_vien, nv.ho_ten, nv.so_dien_thoai, nv.email,
-                       nv.quyen_han, nv.khu_vuc_quan_ly, nv.ma_cua_hang,
-                       nv.luong, 'active' AS trang_thai, ch.khu_vuc AS store_region
-                FROM nhan_vien AS nv
-                LEFT JOIN cua_hang AS ch ON ch.ma_cua_hang = nv.ma_cua_hang
-                WHERE nv.ma_nhan_vien = %(employee_id)s
-                LIMIT 1
-                """,
-                {"employee_id": employee_id},
-            )
-            row = cursor.fetchone()
-            return _application_employee(row) if row else None
-        finally:
-            cursor.close()
+def list_employees(actor):
+    condition, params = employee_scope(actor)
+    return [_display(row) for row in rows(f'SELECT {_FIELDS} FROM nhan_vien nv WHERE {condition} ORDER BY nv.ho_ten,nv.ma_nhan_vien',params)]
 
 
-def list_stores(actor: dict[str, Any]) -> list[dict[str, Any]]:
-    with connection() as conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute(loader.load("employees/list_stores.sql"), _scope(actor))
-            return list(cursor.fetchall())
-        finally:
-            cursor.close()
+def get_employee(employee_id, actor, permission='employees.read'):
+    with transaction() as cursor:
+        return check_employee(cursor,actor,employee_id,permission)
 
 
-def store_region(store_id: str) -> int | None:
-    with connection() as conn:
-        cursor = conn.cursor()
-        try:
-            cursor.execute(loader.load("employees/store_region.sql"), {"store_id": store_id})
-            row = cursor.fetchone()
-            return int(row[0]) if row else None
-        finally:
-            cursor.close()
+def list_stores(actor):
+    return scoped_stores(actor,'employees.write')
 
 
-def create_employee(employee: dict[str, Any], manager_id: str) -> None:
-    with connection() as conn:
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                """
-                INSERT INTO nhan_vien (
-                    ma_nhan_vien, ho_ten, so_dien_thoai, email, ma_cua_hang,
-                    ma_quan_ly, quyen_han, khu_vuc_quan_ly, luong
-                )
-                VALUES (
-                    %(employee_id)s, %(name)s, %(phone)s, %(email)s, %(store_id)s,
-                    %(manager_id)s, %(role)s, %(region_id)s, %(salary)s
-                )
-                """,
-                {
-                    **employee,
-                    "manager_id": manager_id,
-                    "role": role_to_database(employee["role"]),
-                    "salary": employee["salary"],
-                },
-            )
-            conn.commit()
-        finally:
-            cursor.close()
+def create_employee(employee, actor):
+    try:
+        phone=normalize_phone(employee['phone'])
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from None
+    try:
+        with transaction() as cursor:
+            check_store(cursor,actor,employee['store_id'],'employees.write')
+            cursor.execute('SELECT ma_chuc_vu FROM chuc_vu WHERE ma_chuc_vu=%s',[employee['position_id']])
+            if not cursor.fetchone():
+                raise HTTPException(422,'Unknown position.')
+            cursor.execute("""INSERT INTO nhan_vien (ma_nhan_vien,ho_ten,so_dien_thoai,email,ma_quan_ly,luong)
+                VALUES (%s,%s,%s,%s,%s,%s)""",[employee['employee_id'],employee['name'],phone,employee['email'],actor['ma_nhan_vien'],employee['salary']])
+            cursor.execute('INSERT INTO phan_cong_lam_viec (ma_nhan_vien,ma_chuc_vu,ma_cua_hang) VALUES (%s,%s,%s)',[employee['employee_id'],employee['position_id'],employee['store_id']])
+    except mysql.connector.IntegrityError as exc:
+        if exc.errno==1062:
+            raise HTTPException(409,'Employee ID, canonical phone or email already exists.') from None
+        raise
 
 
-def update_salary(employee_id: str, salary: Any, actor: dict[str, Any]) -> bool:
-    parameters = {
-        "employee_id": employee_id,
-        "salary": salary,
-        **_scope(actor),
-    }
-    with connection() as conn:
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                """
-                UPDATE nhan_vien
-                SET luong = %(salary)s
-                WHERE ma_nhan_vien = %(employee_id)s
-                  AND (
-                      (%(actor_role)s = 'admin' AND quyen_han <> 'quan_ly')
-                      OR (%(actor_role)s = 'regional_manager'
-                          AND quyen_han IN ('quan_ly_cua_hang', 'nhan_vien')
-                          AND EXISTS (
-                              SELECT 1
-                              FROM cua_hang AS ch
-                              WHERE ch.ma_cua_hang = nhan_vien.ma_cua_hang
-                                AND ch.khu_vuc = %(actor_region)s
-                          ))
-                      OR (%(actor_role)s = 'store_manager'
-                          AND quyen_han = 'nhan_vien'
-                          AND ma_cua_hang = %(actor_store)s)
-                  )
-                """,
-                parameters,
-            )
-            changed = cursor.rowcount == 1
-            if changed:
-                conn.commit()
-            return changed
-        finally:
-            cursor.close()
+def update_salary(employee_id, salary, actor):
+    with transaction() as cursor:
+        check_employee(cursor,actor,employee_id,'employees.salary')
+        if actor['ma_nhan_vien']==employee_id:
+            raise HTTPException(403,'Cannot edit your own salary.')
+        cursor.execute('UPDATE nhan_vien SET luong=%s WHERE ma_nhan_vien=%s',[salary,employee_id])
+    return True
 
 
-def demote_role(employee_id: str, store_id: str | None, actor: dict[str, Any]) -> bool:
-    parameters = {
-        "employee_id": employee_id,
-        "store_id": store_id,
-        **_scope(actor),
-    }
-    with connection() as conn:
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                """
-                UPDATE nhan_vien
-                SET quyen_han = 'nhan_vien',
-                    khu_vuc_quan_ly = NULL,
-                    ma_cua_hang = COALESCE(%(store_id)s, ma_cua_hang)
-                WHERE ma_nhan_vien = %(employee_id)s
-                  AND quyen_han IN ('quan_ly_khu_vuc', 'quan_ly_cua_hang')
-                  AND (
-                      %(actor_role)s = 'admin'
-                      OR (%(actor_role)s = 'regional_manager'
-                          AND quyen_han = 'quan_ly_cua_hang'
-                          AND EXISTS (
-                              SELECT 1
-                              FROM cua_hang AS ch
-                              WHERE ch.ma_cua_hang = nhan_vien.ma_cua_hang
-                                AND ch.khu_vuc = %(actor_region)s
-                          ))
-                  )
-                """,
-                parameters,
-            )
-            changed = cursor.rowcount == 1
-            if changed:
-                conn.commit()
-            return changed
-        finally:
-            cursor.close()
+def set_employee_status(employee_id, status, actor):
+    with transaction() as cursor:
+        check_employee(cursor,actor,employee_id,'employees.write')
+        if actor['ma_nhan_vien']==employee_id:
+            raise HTTPException(403,'Cannot deactivate yourself.')
+        cursor.execute('UPDATE nhan_vien SET trang_thai=%s WHERE ma_nhan_vien=%s',[status,employee_id])
+        if status=='inactive':
+            cursor.execute("UPDATE tai_khoan SET trang_thai='locked',auth_version=auth_version+1 WHERE ma_nhan_vien=%s",[employee_id])
+        # Reactivating personnel never unlocks a login or re-grants a role.
+    return True
 
 
-def set_employee_status(_employee_id: str, _new_status: str, _actor: dict[str, Any]) -> bool:
-    return False
+def delete_employee(employee_id, actor):
+    return set_employee_status(employee_id,'inactive',actor)
 
 
-def get_distribution(store_id: str) -> list[dict[str, Any]]:
-    with connection() as conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute(
-                """
-                SELECT sp.ma_san_pham, sp.ten_san_pham, sp.mau_sac, sp.kich_co,
-                       COALESCE(SUM(ctpp.so_luong), 0) AS so_luong_phan_phoi
-                FROM san_pham AS sp
-                JOIN chi_tiet_phan_phoi AS ctpp ON ctpp.ma_san_pham = sp.ma_san_pham
-                JOIN phan_phoi AS pp ON pp.ma_phan_phoi = ctpp.ma_phan_phoi
-                JOIN nhan_vien AS nv ON nv.ma_nhan_vien = pp.ma_nhan_vien
-                WHERE nv.ma_cua_hang = %(store_id)s
-                GROUP BY sp.ma_san_pham, sp.ten_san_pham, sp.mau_sac, sp.kich_co
-                ORDER BY sp.ten_san_pham, sp.ma_san_pham
-                """,
-                {"store_id": store_id},
-            )
-            return list(cursor.fetchall())
-        finally:
-            cursor.close()
+def transfer_work(employee_id, store_id, actor):
+    with transaction() as cursor:
+        check_employee(cursor,actor,employee_id,'employees.write')
+        check_store(cursor,actor,store_id,'employees.write')
+        cursor.execute('SELECT ma_nhan_vien FROM nhan_vien WHERE ma_nhan_vien=%s FOR UPDATE',[employee_id])
+        cursor.fetchone()
+        cursor.execute('SELECT ma_cua_hang,ma_kho,ma_chuc_vu FROM phan_cong_lam_viec WHERE ma_nhan_vien=%s AND (den_ngay IS NULL OR den_ngay>UTC_TIMESTAMP())',[employee_id])
+        placements=cursor.fetchall()
+        from app.permissions import check_warehouse
+        for placement in placements:
+            if placement['ma_cua_hang']:
+                check_store(cursor,actor,placement['ma_cua_hang'],'employees.write')
+            else:
+                check_warehouse(cursor,actor,placement['ma_kho'],'employees.write')
+        cursor.execute('UPDATE phan_cong_lam_viec SET den_ngay=UTC_TIMESTAMP() WHERE ma_nhan_vien=%s AND den_ngay IS NULL AND tu_ngay<UTC_TIMESTAMP()',[employee_id])
+        cursor.execute('SELECT ma_phan_cong FROM phan_cong_lam_viec WHERE ma_nhan_vien=%s AND den_ngay IS NULL',[employee_id])
+        if cursor.fetchall():
+            raise HTTPException(409,'Review same-second or future work placements first.')
+        position=placements[0]['ma_chuc_vu'] if placements else 'sales'
+        cursor.execute('INSERT INTO phan_cong_lam_viec (ma_nhan_vien,ma_chuc_vu,ma_cua_hang) VALUES (%s,%s,%s)',[employee_id,position,store_id])
+    return {'status':'transferred'}
 
 
-def _application_employee(row: dict[str, Any]) -> dict[str, Any]:
-    employee = dict(row)
-    employee["quyen_han"] = role_from_database(employee["quyen_han"])
-    return employee
+def get_distribution(actor):
+    from app.repositories.inventory import list_inventory
+    return list_inventory(actor)

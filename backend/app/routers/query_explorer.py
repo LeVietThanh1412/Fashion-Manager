@@ -5,26 +5,27 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.db.academic_queries import AcademicQuery, adapt_query_to_current_schema, load_academic_queries
 from app.db.connection import connection
-from app.core.authentication import require_roles
+from app.core.authentication import require_permissions
 
 QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query"
-QUERIES = load_academic_queries(QUERY_ROOT)
 router = APIRouter(prefix="/api/query-explorer", tags=["query-explorer"])
 
 
 @router.get("")
-def list_queries(_admin: dict = Depends(require_roles("admin"))) -> dict[str, list[dict[str, str]]]:
+def list_queries(_admin: dict = Depends(require_permissions("queries.execute", system=True))) -> dict[str, list[dict[str, str]]]:
+    queries = load_academic_queries(QUERY_ROOT)
     return {
         "items": [
             {"query_id": query.query_id, "title": query.title}
-            for query in sorted(QUERIES.values(), key=lambda item: item.query_id)
+            for query in sorted(queries.values(), key=lambda item: item.query_id)
         ]
     }
 
 
 @router.post("/{query_id}")
-def execute_query(query_id: str, _admin: dict = Depends(require_roles("admin"))) -> dict[str, Any]:
-    query: AcademicQuery | None = QUERIES.get(query_id)
+def execute_query(query_id: str, _admin: dict = Depends(require_permissions("queries.execute", system=True))) -> dict[str, Any]:
+    queries = load_academic_queries(QUERY_ROOT)
+    query: AcademicQuery | None = queries.get(query_id)
     if query is None:
         raise HTTPException(status_code=404, detail="Unknown query ID")
     with connection() as conn:

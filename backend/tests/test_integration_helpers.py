@@ -44,7 +44,9 @@ def test_dev_detects_backend_startup_failure():
 
 def smoke_client(role='admin', failed_path=None, invalid_preflight=False):
     calls = []
-    user = {'role': role, 'employee_id': 'NV_TEST'}
+    user = {'role': role, 'employee_id': 'NV_TEST',
+            'permissions':(['customers.read','inventory.read'] if role=='staff' else ['stores.read','reports.read','employees.read','employees.write']),
+            'assignments':[{'pham_vi':'system','permissions':['queries.execute']}] if role=='admin' else []}
     origin = 'http://127.0.0.1:8080'
 
     def response(request):

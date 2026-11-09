@@ -1,75 +1,58 @@
-# Kết quả kiểm tra kết nối ngày 26/10/2026
+> T?i li?u l?u tr? tr??c schema v3; kh?ng d?ng l?nh ho?c m? h?nh b?n d??i ?? kh?i t?o. Xem [quy tr?nh hi?n h?nh](../README.md), [ERD](erd.md) v? [ph?n quy?n](permissions.md).
 
-## Môi trường
+# Kết quả kiểm tra tích hợp
 
-- Workspace: `E:/LeVietThanh1412-Product/BTL_CSDL`.
-- Python 3.13.5; Node từ runtime có sẵn trên máy (Node chưa có trong PATH thông thường).
-- Frontend `http://127.0.0.1:8080`, backend `http://127.0.0.1:8000`.
-- MySQL 8.4.11 qua cấu hình `.env` hiện có; kết nối từ xa được kiểm tra TLS.
-- Không chạy seed/reset/migration hoặc thay đổi dữ liệu nghiệp vụ trên database.
+Cập nhật theo workspace hiện tại ngày **27/10/2026**.
 
-## Kết quả
+## Môi trường kiểm tra
 
-| Nhóm kiểm tra | Kết quả |
+- Workspace: `D:\abcdetuhoc\VTKH_prj\Fashion-Manager`.
+- Windows; Python `3.14.6` từ `D:\Anaconda\python.exe`.
+- Node.js và MySQL CLI không có trong `PATH`.
+- Bộ schema/seed chính hiện nằm trong `sql/data/`; SQL ứng dụng nằm trong `sql/app/`.
+- Bộ test MySQL là opt-in qua `FASHION_TEST_MYSQL=1` và yêu cầu MySQL thử nghiệm riêng tại `127.0.0.1:3308`. Không bật chế độ này và không ghi dữ liệu vào database.
+
+## Kết quả đã chạy
+
+| Kiểm tra | Kết quả |
 | --- | --- |
-| `py -3.13 -m pytest backend/tests -q` | 58 passed; một cảnh báo deprecation từ thư viện Starlette/AnyIO |
-| `node --test frontend/tests/api.test.cjs` | 10 passed |
-| `node --check` cho api.js, app.js, charts.js | Passed |
-| `py -3.13 -m compileall -q backend scripts` | Passed |
-| `py -3.13 scripts/check_queries.py` | 5 file, 51 query ID duy nhất |
-| DNS + `scripts/verify_db.py` | Passed; đọc được đủ 9 bảng nghiệp vụ |
-| Public API và CORS | HTTP 200 cho health, DB health, sản phẩm, danh mục |
-| Endpoint được bảo vệ khi chưa có token | HTTP 401 trên các endpoint được smoke test liệt kê |
-| CORS preflight POST + authorization/content-type | Passed |
-| Đăng nhập, `/me`, đọc dữ liệu với admin | Passed |
-| Đăng nhập, `/me`, đọc dữ liệu với quản lý khu vực | Passed; query explorer và khách hàng trả 403 |
-| Đăng nhập, `/me`, đọc dữ liệu với quản lý cửa hàng | Passed; query explorer và khách hàng trả 403 |
-| Đăng nhập, `/me`, đọc dữ liệu với nhân viên | Passed; nhân viên và analytics sales trả 403 |
-| Chạy toàn bộ query explorer bằng token admin trên API thật | 51/51 HTTP 200 |
-| Config local cho cổng API tùy chọn | Test GET/HEAD/query string, no-store, không ghi đè file deploy đều qua |
-| Frontend xử lý token hết hạn, lỗi validation, lỗi đồng bộ | Tests passed |
-| Giao diện trong Edge | Trang đăng nhập local hiển thị; chưa xác minh thao tác sau đăng nhập qua UI |
+| `python -m pytest backend/tests -q` | **81 passed, 1 failed, 31 skipped** |
+| `python scripts/check_queries.py` | **PASS** — 5 file, 55 query ID duy nhất |
+| `python -m compileall -q backend scripts` | **PASS** |
+| `node --test frontend/tests/api.test.cjs` | **NOT RUN** — Node.js không có trong `PATH` |
+| Kiểm tra tích hợp với MySQL thật | **NOT RUN** — bộ test MySQL cần opt-in và máy chủ thử nghiệm riêng |
+| Kiểm tra thao tác trên trình duyệt | **NOT RUN** |
 
-Đăng nhập và đọc dữ liệu bốn vai trò được kiểm tra bằng HTTP tới backend đang chạy,
-truy cập MySQL thật; không mock database ở đợt tích hợp này. Các luồng ghi như tạo đơn,
-thêm nhân viên, cập nhật lương được kiểm tra trong bộ test với repository/connection giả lập;
-không gửi thao tác ghi nghiệp vụ lên database thật.
+Một test hiện thất bại:
 
-Số dòng quan sát tại thời điểm kiểm tra:
+```text
+backend/tests/test_application.py::test_no_redundant_current_price_or_detail_identifier_in_schema
+FileNotFoundError: sql/1.TaoCoSoDuLieu.sql
+```
 
-| Bảng | Số dòng |
-| --- | ---: |
-| danh_muc | 20 |
-| cua_hang | 20 |
-| san_pham | 40 |
-| nhan_vien | 74 |
-| phan_phoi | 40 |
-| chi_tiet_phan_phoi | 120 |
-| khach_hang | 40 |
-| don_hang | 100 |
-| chi_tiet_don_hang | 230 |
+Test đang tìm schema ở thư mục gốc `sql/`, trong khi file hiện có là
+[`sql/data/1.TaoCoSoDuLieu.sql`](../sql/data/1.TaoCoSoDuLieu.sql). Đây là lỗi đường dẫn
+trong test; test này chưa xác minh được các điều kiện schema. Không tự chuyển hoặc sửa file SQL
+để làm test qua.
 
-Đối chiếu cuối xác nhận admin của database hiện tại là điện thoại `0912000000`, mật khẩu `NV000`. Đăng nhập qua HTTP, Bearer token và summary trả đúng 40 sản phẩm, 20 danh mục, 20 cửa hàng, 100 đơn hàng. Số `0901000000` trong tài liệu cũ thuộc bộ seed khác.
+31 test bị skip thuộc nhóm MySQL tích hợp; chúng được cấu hình chỉ chạy khi đặt
+`FASHION_TEST_MYSQL=1`. Không bật vì cần xác nhận rõ máy chủ MySQL riêng đúng `127.0.0.1:3308`;
+test sẽ khởi tạo và ghi dữ liệu vào database test đó.
 
-## Thay đổi
+`compileall` chỉ xác nhận cú pháp Python, không thay thế kiểm tra chức năng frontend hoặc kết nối
+database. Chưa có cơ sở để khẳng định API public, CORS, đăng nhập, dữ liệu MySQL, query explorer
+trên backend đang chạy hay giao diện sau đăng nhập hoạt động trong lần kiểm tra này.
 
-- Bổ sung khóa token ngẫu nhiên vào `.env` local, không đưa khóa vào source/frontend.
-- Tách helper API khỏi các loader bị trùng trong `api.js` và `app.js`.
-- Bỏ dữ liệu đăng nhập điền sẵn không khớp tài khoản seed.
-- Ngăn submit đăng nhập lặp; xóa ô mật khẩu sau đăng nhập thành công.
-- Tải dữ liệu ban đầu một lần cho mỗi endpoint, reset phân trang khi đăng nhập.
-- Hiển thị chi tiết trường không hợp lệ khi backend trả HTTP 422.
-- Sửa colspan thông báo bảng nhân viên từ 7 thành 5 cột.
-- Dev server cấp config trong bộ nhớ, kiểm tra cổng/khóa token, chờ backend sẵn sàng và
-  dừng frontend nếu backend kết thúc.
-- Smoke test hỗ trợ đăng nhập bằng biến môi trường và kiểm tra quyền; workflow Aiven dùng
-  chung hàm này, xử lý HTTP 401 đúng cho request chưa xác thực.
-- Sửa fixture frontend để phản ánh các input/select thực tế trong HTML, thêm kiểm tra hồi quy.
-- `requirements.txt` gốc tham chiếu dependencies backend.
-- Bổ sung `INTEGRATION.md`, cập nhật README/frontend README/SQL README/DEPLOYMENT.md.
+## Cần làm tiếp
 
-## Phạm vi bàn giao
+1. Cập nhật test schema để đọc từ `sql/data/1.TaoCoSoDuLieu.sql`, hoặc dùng đường dẫn schema
+   hiện hành phù hợp với mục tiêu kiểm tra; sau đó chạy lại toàn bộ backend tests.
+2. Cài/chọn Node.js và chạy kiểm tra cú pháp JavaScript cùng
+   `node --test frontend/tests/api.test.cjs`.
+3. Chỉ chạy test MySQL tích hợp khi đã xác nhận database thử nghiệm riêng tại `127.0.0.1:3308`
+   và cho phép test tạo/reset dữ liệu trong database đó.
+4. Nếu cần báo cáo tích hợp end-to-end, khởi chạy frontend/backend và xác minh từng vai trò,
+   CORS, thao tác đọc/ghi cùng giao diện trên môi trường được cho phép.
 
-Các thay đổi đang ở workspace local. Thư mục không có metadata Git, nên chưa commit/push.
-Không thay đổi cấu hình Render/GitHub hoặc xác nhận bản public đã deploy cùng phiên bản.
-Hướng dẫn chạy và map chức năng đầy đủ: [INTEGRATION.md](../INTEGRATION.md).
+Không ghi nhận số lượng bản ghi, thông tin đăng nhập, trạng thái deploy hoặc kết quả kết nối
+database trong báo cáo này vì chưa kiểm tra các mục đó trong workspace hiện tại.

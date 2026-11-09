@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.routers.analytics import clean_referrer, device_type, masked_ip
 from main import app
+from access_helpers import actor,grant
 
 
 @pytest.mark.parametrize(('agent', 'expected'), [('iPhone Mobile', 'mobile'), ('Android Mobile', 'mobile'), ('iPad', 'tablet'), ('Android Tablet', 'tablet'), ('Windows NT', 'desktop')])
@@ -51,9 +52,7 @@ def test_visit_is_persisted_only_on_explicit_tracking_request(monkeypatch):
     monkeypatch.setattr(router, 'record_visit', recorder)
     monkeypatch.setattr(router, 'get_visit_dashboard', lambda: {'total': 0})
     import app.core.authentication as authentication
-    app.dependency_overrides[authentication.get_current_user] = lambda: {
-        "quyen_han": "admin",
-    }
+    app.dependency_overrides[authentication.get_current_user] = lambda: actor(grant(scope='system',permissions=['analytics.read']))
     with TestClient(app) as client:
         assert client.get('/api/analytics/visits').status_code == 200
         recorder.assert_not_called()

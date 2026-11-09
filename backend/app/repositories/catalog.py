@@ -1,88 +1,45 @@
-from pathlib import Path
-from typing import Any
-
-from app.db.connection import connection
-from app.db.query_loader import QueryLoader
-
-SQL_ROOT = Path(__file__).resolve().parents[3] / "sql" / "app"
-loader = QueryLoader(SQL_ROOT)
-
-def list_products(search: str | None, category_id: str | None, limit: int, offset: int) -> list[dict[str, Any]]:
-    with connection() as conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute(
-                """
-                SELECT ma_san_pham, ma_danh_muc, ten_san_pham, mau_sac, kich_co,
-                       gia_san_pham AS gia_ban
-                FROM san_pham
-                WHERE (%(search)s IS NULL OR ten_san_pham LIKE CONCAT('%', %(search)s, '%'))
-                  AND (%(category_id)s IS NULL OR ma_danh_muc = %(category_id)s)
-                ORDER BY ten_san_pham, ma_san_pham
-                LIMIT %(limit)s OFFSET %(offset)s
-                """,
-                {"search": search, "category_id": category_id, "limit": limit, "offset": offset},
-            )
-            return list(cursor.fetchall())
-        finally:
-            cursor.close()
+from app.db.helpers import rows
+from app.permissions import store_scope, has_system_permission
 
 
-def list_stores(actor: dict[str, Any]) -> list[dict[str, Any]]:
-    with connection() as conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute(
-                loader.load("stores/list.sql"),
-                {
-                    "actor_role": actor["quyen_han"],
-                    "actor_region": actor["khu_vuc_quan_ly"],
-                    "actor_store": actor["ma_cua_hang"],
-                },
-            )
-            return list(cursor.fetchall())
-        finally:
-            cursor.close()
+def list_products(search=None, category_id=None, limit=20, offset=0):
+    return rows("""SELECT s.ma_san_pham,s.ma_san_pham AS ma_sku,s.ma_mau,
+        m.ma_danh_muc,m.ten_san_pham,s.mau_sac,s.kich_co,s.gia_san_pham AS gia_ban
+        FROM san_pham s JOIN mau_san_pham m ON m.ma_mau=s.ma_mau
+        WHERE s.trang_thai='active' AND m.trang_thai='active'
+        AND (%s IS NULL OR m.ten_san_pham LIKE CONCAT('%%',%s,'%%'))
+        AND (%s IS NULL OR m.ma_danh_muc=%s)
+        ORDER BY m.ten_san_pham,s.ma_san_pham LIMIT %s OFFSET %s""",
+        [search,search,category_id,category_id,limit,offset])
 
 
-def list_categories() -> list[dict[str, Any]]:
-    with connection() as conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute(loader.load("categories/list.sql"))
-            return list(cursor.fetchall())
-        finally:
-            cursor.close()
+def list_stores(actor, permission='stores.read'):
+    condition, params = store_scope(actor,permission=permission)
+    return rows(f"SELECT ch.*,kv.ten_khu_vuc FROM cua_hang ch JOIN khu_vuc kv ON kv.ma_khu_vuc=ch.khu_vuc WHERE ch.trang_thai='active' AND {condition} ORDER BY ch.ma_cua_hang",params)
 
 
-def list_customers_for_orders() -> list[dict[str, Any]]:
-    with connection() as conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute(loader.load("customers/list_for_order.sql"))
-            return list(cursor.fetchall())
-        finally:
-            cursor.close()
+def list_categories():
+    return rows('SELECT * FROM danh_muc ORDER BY ten_danh_muc')
 
 
-def get_catalog_summary(actor: dict[str, Any]) -> dict[str, int]:
-    with connection() as conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            cursor.execute(
-                loader.load("analytics/summary.sql"),
-                {
-                    "actor_role": actor["quyen_han"],
-                    "actor_region": actor["khu_vuc_quan_ly"],
-                    "actor_store": actor["ma_cua_hang"],
-                },
-            )
-            row = cursor.fetchone()
-            return {
-                "total_products": int(row["total_products"]),
-                "total_categories": int(row["total_categories"]),
-                "total_stores": int(row["total_stores"]),
-                "total_orders": int(row["total_orders"]),
-            }
-        finally:
-            cursor.close()
+def list_regions(actor):
+    if has_system_permission(actor,'stores.read'):
+        return rows('SELECT * FROM khu_vuc ORDER BY ma_khu_vuc')
+    condition, params = store_scope(actor)
+    return rows(f'SELECT DISTINCT kv.* FROM khu_vuc kv JOIN cua_hang ch ON ch.khu_vuc=kv.ma_khu_vuc WHERE {condition} ORDER BY kv.ma_khu_vuc',params)
+
+
+def list_customers_for_orders(actor):
+    condition, params = store_scope(actor,permission='customers.read')
+    if has_system_permission(actor,'customers.read'):
+        return rows('SELECT * FROM khach_hang ORDER BY ho_ten LIMIT 500')
+    return rows(f"SELECT k.* FROM khach_hang k WHERE EXISTS (SELECT 1 FROM don_hang d JOIN cua_hang ch ON ch.ma_cua_hang=d.ma_cua_hang WHERE d.ma_khach_hang=k.ma_khach_hang AND {condition}) ORDER BY k.ho_ten LIMIT 500",params)
+
+
+def get_catalog_summary(actor):
+    condition, params = store_scope(actor,permission='reports.read')
+    return rows(f"""SELECT (SELECT COUNT(*) FROM san_pham) AS total_products,
+        (SELECT COUNT(*) FROM danh_muc) AS total_categories,
+        (SELECT COUNT(*) FROM cua_hang ch WHERE {condition}) AS total_stores,
+        (SELECT COUNT(*) FROM don_hang d LEFT JOIN cua_hang ch ON ch.ma_cua_hang=d.ma_cua_hang
+            WHERE d.trang_thai<>'cancelled' AND {condition}) AS total_orders""",[*params,*params])[0]

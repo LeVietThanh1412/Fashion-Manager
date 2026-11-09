@@ -1,7 +1,4 @@
-SELECT nv.ma_nhan_vien, nv.ho_ten, nv.so_dien_thoai, nv.quyen_han,
-       nv.khu_vuc_quan_ly, nv.ma_cua_hang, nv.trang_thai,
-       ch.khu_vuc AS store_region
-FROM nhan_vien AS nv
-LEFT JOIN cua_hang AS ch ON ch.ma_cua_hang = nv.ma_cua_hang
-WHERE nv.so_dien_thoai = %(phone)s
-LIMIT 1;
+SELECT nv.ma_nhan_vien,nv.ho_ten,nv.so_dien_thoai,nv.email,nv.ma_quan_ly,nv.luong,tk.ma_tai_khoan,tk.mat_khau_hash,tk.auth_version,
+CASE WHEN nv.trang_thai='active' THEN tk.trang_thai ELSE 'inactive' END AS trang_thai
+FROM tai_khoan tk JOIN nhan_vien nv ON nv.ma_nhan_vien=tk.ma_nhan_vien
+WHERE nv.so_dien_thoai=%(phone)s;

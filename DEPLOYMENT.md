@@ -1,93 +1,16 @@
-# Chạy và deploy Fashion Manager
+# Chạy và triển khai schema v3
 
-Luồng ứng dụng và bảng ánh xạ màn hình/API: [INTEGRATION.md](INTEGRATION.md).
-Các bước dưới đây mô tả cấu hình từ source hiện tại; không khẳng định trạng thái deploy của
-một tài khoản GitHub/Render. Thư mục bàn giao hiện không có `.git`.
-
-## 1. Chạy local
-
-Dùng Python 3.12/3.13. Trên máy hiện tại có Python 3.13:
+Khởi tạo database mới và quản trị đầu tiên theo [quy trình chính](README.md). Backend yêu cầu schema version 3. `reset-dev` chỉ dành cho database phát triển cục bộ đã xác minh, không dùng trên production.
+Tài khoản dùng mật khẩu hash được cấp riêng, không có mật khẩu mặc định theo mã nhân viên.
 
 ```powershell
-py -3.13 -m pip install -r requirements.txt
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+python -m pip install -r backend/requirements.txt
+python scripts/verify_db.py
+python scripts/dev.py --config dev.local.env
 ```
 
-Điền cấu hình MySQL trong `.env` bằng thông tin kết nối của dịch vụ đang dùng:
-
-```dotenv
-DB_HOST=<mysql-host>
-DB_PORT=<mysql-port>
-DB_NAME=quan_ly_chuoi_thoi_trang
-DB_USER=<mysql-user>
-DB_PASSWORD=<mysql-password>
-AUTH_TOKEN_SECRET=<private-random-secret-at-least-32-bytes>
-APP_CORS_ORIGINS=http://127.0.0.1:8080,http://localhost:8080
-# DB_SSL_CA=C:/path/to/ca.pem
-```
-
-Tạo khóa riêng bằng `py -3.13 -c "import secrets; print(secrets.token_urlsafe(48))"` rồi dán
-vào `AUTH_TOKEN_SECRET`. Cấu hình local hiện đã được bổ sung khóa. Backend đọc `.env` ở gốc,
-ưu tiên biến môi trường của tiến trình nếu cùng tên. `DB_SSL_CA` bật xác minh chứng chỉ và
-hostname; kết nối MySQL từ xa luôn được kiểm tra có TLS.
-
-```powershell
-py -3.13 scripts/verify_db.py
-py -3.13 scripts/dev.py
-```
-
-Mở http://127.0.0.1:8080. API docs: http://127.0.0.1:8000/docs.
-Đăng nhập tài khoản admin trong database hiện tại bằng điện thoại `0912000000`, mật khẩu `NV000`.
-Script chờ API sẵn sàng, phục vụ config local trong bộ nhớ, không thay file config deploy,
-và dừng cả hai server khi Ctrl+C. Khi đổi cổng:
-
-```powershell
-py -3.13 scripts/dev.py --api-port 8010 --frontend-port 8081
-```
-
-URL giao diện khi đó là http://127.0.0.1:8081. CORS và config tự dùng cổng mới.
-`FRONTEND_API_URL` không điều khiển `scripts/dev.py`; script này ưu tiên backend local.
-
-## 2. Schema và dữ liệu
-
-Backend hiện tương thích bộ schema `sql/data/1.TaoCoSoDuLieu.sql`, seed
-`sql/data/2.ThemDuLieu.sql`, rồi migration vai trò `sql/data/3.UpdateDeleteRangBuoc.sql`.
-Hai file đầu có thao tác reset, chỉ dùng khi tạo database demo mới. Migration vai trò chạy
-một lần nếu chưa có các cột `quyen_han`, `khu_vuc_quan_ly`.
-
-Database local đang cấu hình đã có schema và dữ liệu, không cần khởi tạo lại.
-Bộ `sql/schema/` + `sql/data/01_seed.sql` là bộ khác, không dùng lẫn với backend hiện tại.
-Giá sản phẩm là `gia_san_pham`; chi tiết đơn không lưu đơn giá lúc bán. Doanh thu dashboard
-được ước tính theo giá hiện tại. Analytics lượt truy cập là chức năng legacy, không cần
-migration đó để chạy dashboard bán hàng.
-
-## 3. Kiểm tra
-
-```powershell
-./scripts/test.ps1
-py -3.13 scripts/check_queries.py
-py -3.13 scripts/smoke_api.py
-```
-
-Frontend tests cần Node.js 22+. `scripts/test.ps1` thông báo nếu thiếu Node.
-Để xác minh thêm đăng nhập và đọc dữ liệu theo vai trò:
-
-```powershell
-$env:SMOKE_PHONE = '0912000000'
-$env:SMOKE_PASSWORD = 'NV000'
-py -3.13 scripts/smoke_api.py --login
-Remove-Item Env:SMOKE_PHONE, Env:SMOKE_PASSWORD
-```
-
-Kiểm tra API cổng khác:
-
-```powershell
-py -3.13 scripts/smoke_api.py --url http://127.0.0.1:8010 --origin http://127.0.0.1:8081
-```
-
-Smoke không ghi dữ liệu nghiệp vụ. Mặc định nó kiểm tra API công khai, HTTP 401 ở endpoint
-được bảo vệ và CORS preflight. `--login` kiểm tra token, `/me`, dữ liệu phù hợp vai trò và
-các trường hợp HTTP 403. Không in token/mật khẩu.
+`verify_db.py` chỉ đọc database được cấu hình. Giữ riêng các biến DB và AUTH_TOKEN_SECRET ở backend.
+Smoke chỉ đọc; tùy chọn `--login` dùng SMOKE_PHONE/SMOKE_PASSWORD do người vận hành cung cấp.
 
 ## 4. Backend trên Render
 
@@ -159,7 +82,7 @@ Nó kiểm tra database chỉ đọc rồi dùng cùng hàm smoke như local. C�
 | --- | --- |
 | Không mở được frontend local | Terminal dev còn chạy, đúng cổng, không mở HTML bằng `file://` |
 | API login HTTP 503 do khóa token | `AUTH_TOKEN_SECRET` có ít nhất 32 byte trên backend; khởi động lại sau khi sửa |
-| Login HTTP 401 | Điện thoại tồn tại trong DB; mật khẩu đúng mã nhân viên |
+| Login HTTP 401 | Tài khoản active, nhân sự active, mật khẩu đã được đặt bằng quy trình cấp tài khoản |
 | API HTTP 403 | Tài khoản có quyền chức năng và phạm vi cửa hàng/khu vực phù hợp |
 | Login HTTP 404 | URL trỏ sai backend hoặc backend chưa có phiên bản API đăng nhập |
 | Không gọi được API/CORS | URL FastAPI đúng, backend hoạt động, origin frontend được phép |

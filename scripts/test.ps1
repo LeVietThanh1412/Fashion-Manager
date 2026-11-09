@@ -2,6 +2,8 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path -Parent $PSScriptRoot)
 if (Test-Path '.venv/Scripts/python.exe') {
     $pythonExe = (Resolve-Path '.venv/Scripts/python.exe').Path
+} elseif (Get-Command python -ErrorAction SilentlyContinue) {
+    $pythonExe = 'python'
 } else {
     $pythonExe = 'py'
 }

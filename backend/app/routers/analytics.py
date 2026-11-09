@@ -7,13 +7,13 @@ from pydantic import BaseModel, Field
 
 from app.repositories.analytics import get_visit_dashboard, record_visit
 from app.repositories.sales import get_sales_dashboard
-from app.core.authentication import require_roles
+from app.core.authentication import require_permissions
 
 router = APIRouter(prefix='/api/analytics', tags=['analytics'])
 
 
 @router.get('/sales')
-def sales_dashboard(actor: dict = Depends(require_roles('admin', 'regional_manager', 'store_manager'))) -> dict:
+def sales_dashboard(actor: dict = Depends(require_permissions('reports.read'))) -> dict:
     return get_sales_dashboard(actor)
 
 
@@ -63,7 +63,7 @@ def track_visit(payload: VisitInput, request: Request) -> dict:
 
 
 @router.get('/visits')
-def visit_dashboard(_admin: dict = Depends(require_roles('admin'))) -> dict:
+def visit_dashboard(_admin: dict = Depends(require_permissions('analytics.read', system=True))) -> dict:
     try:
         return get_visit_dashboard()
     except ProgrammingError as exc:

@@ -8,8 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 Code = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 Phone = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=25)]
-Money = Annotated[Decimal, Field(ge=0, max_digits=15, decimal_places=0)]
-Role = Literal['admin', 'regional_manager', 'store_manager', 'staff']
+Money = Annotated[Decimal, Field(ge=0, max_digits=15, decimal_places=2)]
 
 
 class Form(BaseModel):
@@ -23,8 +22,7 @@ class Category(Form):
 
 class Product(Form):
     ma_san_pham: Code
-    ma_danh_muc: Code
-    ten_san_pham: Name
+    ma_mau: Code
     mau_sac: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
     kich_co: Code
     gia_san_pham: Money
@@ -33,39 +31,27 @@ class Product(Form):
 class Store(Form):
     ma_cua_hang: Code
     ten_cua_hang: Name
-    khu_vuc: int = Field(ge=1, le=3)
+    khu_vuc: int = Field(ge=1)
     dia_chi: Name
     so_dien_thoai: Phone
     email: Name
 
 
 class Assignment(Form):
-    quyen_han: Role
+    pham_vi: Literal['system','region','store','warehouse']
+    ma_khu_vuc: int | None = None
     ma_cua_hang: Code | None = None
-    khu_vuc_quan_ly: int | None = Field(default=None, ge=1, le=3)
-    ma_quan_ly: Code | None = None
-    trang_thai: Literal['active', 'inactive'] = 'active'
+    ma_kho: Code | None = None
 
     @model_validator(mode='after')
-    def scope_matches_role(self):
-        if self.quyen_han == 'admin':
-            valid = self.ma_cua_hang is None and self.khu_vuc_quan_ly is None
-        elif self.quyen_han == 'regional_manager':
-            valid = self.ma_cua_hang is None and self.khu_vuc_quan_ly is not None
-        else:
-            valid = self.ma_cua_hang is not None and self.khu_vuc_quan_ly is None
-        if not valid:
-            raise ValueError('Vai trò và phạm vi cửa hàng/khu vực không phù hợp.')
+    def valid_scope(self):
+        key={'system':None,'region':'ma_khu_vuc','store':'ma_cua_hang','warehouse':'ma_kho'}[self.pham_vi]
+        if any((getattr(self,k) is not None)!=(k==key) for k in ('ma_khu_vuc','ma_cua_hang','ma_kho')):
+            raise ValueError('Scope must reference exactly one entity.')
         return self
 
 
-class Employee(Assignment):
-    ma_nhan_vien: Code
-    ho_ten: Name
-    so_dien_thoai: Phone
-    email: Name
-    luong: Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)] = Decimal(0)
-    cap_bac: int = Field(default=2, ge=1, le=3)
+from app.schemas.employees import EmployeeInput as Employee
 
 
 class Customer(Form):

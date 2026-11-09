@@ -61,17 +61,16 @@ def verify_api(client, origin: str, phone: str = '', password: str = '') -> None
     if me != result['user']:
         raise ValueError('Login user and /api/auth/me do not match.')
     role = me['role']
-    paths = STAFF_PATHS if role == 'staff' else MANAGER_PATHS
-    for path in paths:
-        check('GET', path, headers=headers)
-    if role == 'admin':
-        check('GET', '/api/query-explorer', headers=headers)
-    elif role == 'staff':
-        check('GET', '/api/employees', 403, headers=headers)
-        check('GET', '/api/analytics/sales', 403, headers=headers)
-    else:
-        check('GET', '/api/query-explorer', 403, headers=headers)
-        check('GET', '/api/customers', 403, headers=headers)
+    permissions=set(me.get('permissions',[]))
+    endpoints={
+        '/api/stores':'stores.read','/api/analytics/summary':'reports.read',
+        '/api/analytics/sales':'reports.read','/api/employees':'employees.read',
+        '/api/employees/stores':'employees.write','/api/customers':'customers.read',
+        '/api/employee/distribution':'inventory.read'}
+    for path,permission in endpoints.items():
+        check('GET',path,200 if permission in permissions else 403,headers=headers)
+    system_query=any(g['pham_vi']=='system' and 'queries.execute' in g['permissions'] for g in me.get('assignments',[]))
+    check('GET','/api/query-explorer',200 if system_query else 403,headers=headers)
     print(f'PASS: authenticated read flow for {role}; no business data written.')
 
 

@@ -1,10 +1,12 @@
+> T?i li?u l?u tr? tr??c schema v3; kh?ng d?ng l?nh ho?c m? h?nh b?n d??i ?? kh?i t?o. Xem [quy tr?nh hi?n h?nh](../README.md), [ERD](erd.md) v? [ph?n quy?n](permissions.md).
+
 # Test evidence
 
 ## Đã chạy
 - `py -3 scripts\check_queries.py` -> PASS: 5 files, 50 unique query IDs.
 - `$env:PYTHONPATH='backend'; py -3.13 -m pytest backend\tests -q` -> PASS: 4 tests.
 - `py -3.13 -m py_compile ...` -> PASS: backend modules compile.
-- Query registry smoke check -> PASS: 50 IDs, first `M01_Q01`.
+- Query registry smoke check -> PASS: 75 IDs, 15 per member, first `M01_Q01`.
 - FastAPI smoke test -> PASS: `GET /health` = 200 and `GET /api/query-explorer` = 200 with 50 items.
 
 ## Chưa chạy

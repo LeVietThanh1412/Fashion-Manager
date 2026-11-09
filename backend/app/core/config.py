@@ -7,11 +7,6 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DOTENV_PATH = PROJECT_ROOT / ".env"
-# Existing local setups in this project used the legacy file name `env`.
-# Prefer the documented `.env`, but keep that setup working without copying
-# credentials or changing the database configuration file.
-if not DOTENV_PATH.is_file():
-    DOTENV_PATH = PROJECT_ROOT / "env"
 load_dotenv(DOTENV_PATH)
 
 

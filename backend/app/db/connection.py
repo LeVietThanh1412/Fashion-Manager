@@ -31,6 +31,9 @@ def connection() -> Iterator[Any]:
         **tls_options,
     )
     try:
+        session = conn.cursor()
+        session.execute("SET time_zone = '+00:00'")
+        session.close()
         if settings.db_host not in {"localhost", "127.0.0.1", "::1"}:
             cursor = conn.cursor()
             try:

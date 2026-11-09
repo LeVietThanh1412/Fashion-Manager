@@ -1,11 +1,16 @@
-const REGION_NAMES = { 1: 'Miền Bắc', 2: 'Miền Trung', 3: 'Miền Nam' };
+const REGION_NAMES = {};
 const ROLE_NAMES = {
-  admin: 'Admin',
+  system_admin: 'Quản trị hệ thống',
+  operations_manager: 'Quản lý toàn chuỗi',
+  sales_staff: 'Nhân viên bán hàng',
+  warehouse_staff: 'Nhân viên kho',
+  unassigned: 'Chưa được phân quyền',
   regional_manager: 'Quản lý khu vực',
   store_manager: 'Quản lý cửa hàng',
   staff: 'Nhân viên'
 };
 let employeeStores = [];
+let availableGrantScopes = {regions:[],stores:[],warehouses:[]};
 let academicQueries = [];
 
 function setVisible(element, visible) {
@@ -15,7 +20,7 @@ function setVisible(element, visible) {
 }
 
 function switchTab(tabId, loadData = true) {
-  const tabs = ['analytics', 'products', 'categories', 'settings', 'employees', 'queries', 'orders', 'distribution'];
+  const tabs = ['my-account','accounts','analytics', 'products', 'categories', 'settings', 'employees', 'queries', 'orders', 'distribution'];
   if (!tabs.includes(tabId)) return;
   tabs.forEach(tab => {
     const element = document.getElementById(`tab-${tab}`);
@@ -40,11 +45,193 @@ function switchTab(tabId, loadData = true) {
     loadStores();
     loadAnalyticsSummary();
   }
-  if (tabId === 'analytics') loadSalesAnalytics();
+  if (tabId === 'analytics') {
+    loadSalesAnalytics();
+    loadBusinessReport();
+  }
   if (tabId === 'employees') loadEmployees();
+  if (tabId === 'my-account') loadMyAccount();
+  if (tabId === 'accounts') loadAccounts();
   if (tabId === 'queries') loadAcademicQueries();
-  if (tabId === 'orders') loadOrderFormData();
+  if (tabId === 'orders') {
+    if (can('sales.create')) loadOrderFormData();
+    if (can('sales.read')) loadOrders();
+  }
   if (tabId === 'distribution') loadDistribution();
+}
+
+function scopeLabel(grant) {
+  return grant.pham_vi === 'system' ? 'Toàn hệ thống' :
+    `${{region:'Khu vực',store:'Cửa hàng',warehouse:'Kho'}[grant.pham_vi]}: ${grant.ma_khu_vuc ?? grant.ma_cua_hang ?? grant.ma_kho}`;
+}
+
+function addText(parent, tag, value, className='') {
+  const node=document.createElement(tag);
+  node.textContent=value;
+  node.className=className;
+  parent.appendChild(node);
+  return node;
+}
+
+async function loadMyAccount() {
+  const profile=document.getElementById('myAccountProfile');
+  const grants=document.getElementById('myAccountGrants');
+  profile.replaceChildren(); grants.replaceChildren();
+  try {
+    const {user}=await apiRequest('/api/auth/me');
+    currentUser=user;
+    addText(profile,'p',`${user.name} · ${user.employee_id} · ${user.phone}`);
+    if (user.email) addText(profile,'p',`Email: ${user.email}`);
+    if (user.manager_id) addText(profile,'p',`Quản lý trực tiếp: ${user.manager_id}`);
+    if (user.salary != null) addText(profile,'p',`Lương: ${formatVND(user.salary)}`);
+    addText(profile,'p',`Tài khoản: ${user.account_id}`);
+    (user.workplaces || []).forEach(work => addText(profile,'p',`${work.ten_chuc_vu} · ${work.ten_noi_lam_viec} (${work.ma_cua_hang || work.ma_kho})`));
+    if (!user.assignments.length) addText(grants,'p','Tài khoản chưa được gán quyền nghiệp vụ.');
+    user.assignments.forEach(grant => {
+      const card=addText(grants,'div','', 'border rounded p-3');
+      addText(card,'p',`${ROLE_NAMES[grant.ma_vai_tro] || grant.ma_vai_tro} · ${scopeLabel(grant)}`,'font-semibold');
+      addText(card,'p',`Hiệu lực: ${grant.tu_ngay} → ${grant.den_ngay || 'không thời hạn'}`);
+      addText(card,'p',`Quyền trong phạm vi này: ${grant.permissions.join(', ')}`);
+    });
+  } catch (error) { addText(profile,'p',error.message,'text-red-600'); }
+}
+
+function systemGrantAdmin() {
+  return (currentUser?.assignments || []).some(g => g.pham_vi==='system' && g.permissions.includes('auth.grant'));
+}
+
+function renderGrantScopeOptions() {
+  const scope=document.getElementById('grantScope').value;
+  const input=document.getElementById('grantScopeId');
+  const list=document.getElementById('grantScopeOptions');
+  input.value='';
+  input.disabled=scope==='system';
+  list.replaceChildren();
+  const rows=scope==='region'?availableGrantScopes.regions:scope==='store'?availableGrantScopes.stores:scope==='warehouse'?availableGrantScopes.warehouses:[];
+  rows.forEach(item=>{
+    const option=document.createElement('option');
+    option.value=String(item.ma_khu_vuc ?? item.ma_cua_hang ?? item.ma_kho);
+    option.label=item.ten_khu_vuc ?? item.ten_cua_hang ?? item.ten_kho;
+    list.appendChild(option);
+  });
+}
+
+async function accountAction(path,method,body) {
+  try {
+    await apiRequest(path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    await loadAccounts();
+    showToast('Đã cập nhật tài khoản.');
+  } catch (error) { setStatus('accountsStatus',error.message,true); }
+}
+
+async function loadAccounts() {
+  const container=document.getElementById('accountRows');
+  container.replaceChildren();
+  setStatus('accountsStatus','Đang tải tài khoản...');
+  try {
+    const data=await apiRequest('/api/access/accounts');
+    const canGrant=can('auth.grant');
+    if (canGrant) {
+      const [catalog,scopes]=await Promise.all([apiRequest('/api/access/roles'),apiRequest('/api/access/scopes')]);
+      availableGrantScopes=scopes;
+      renderGrantScopeOptions();
+      const roleSelect=document.getElementById('grantRole');
+      roleSelect.replaceChildren();
+      catalog.roles.forEach(role=>{
+        const node=document.createElement('option');
+        node.value=role.ma_vai_tro;
+        node.textContent=role.ten_vai_tro;
+        roleSelect.appendChild(node);
+      });
+    }
+    const employeeSelect=document.getElementById('accountEmployee');
+    const accountSelect=document.getElementById('grantAccount');
+    [employeeSelect,accountSelect].forEach(select=>select.replaceChildren());
+    const option=(select,value,label)=>{const node=document.createElement('option');node.value=value;node.textContent=label;select.appendChild(node);};
+    data.items.forEach(person=>{
+      if (!person.ma_tai_khoan && person.employee_status==='active') option(employeeSelect,person.ma_nhan_vien,`${person.ho_ten} · ${person.ma_nhan_vien}`);
+      else option(accountSelect,person.ma_tai_khoan,`${person.ho_ten} · ${person.ma_tai_khoan}`);
+      const card=addText(container,'div','', 'border rounded p-4 text-sm');
+      addText(card,'h3',`${person.ho_ten} · ${person.ma_nhan_vien} · ${person.so_dien_thoai}`,'font-semibold');
+      addText(card,'p',`Chức vụ / nơi làm việc: ${person.workplaces.map(w=>`${w.ten_chuc_vu} @ ${w.ten_noi_lam_viec}`).join('; ') || 'Chưa phân công'}`);
+      addText(card,'p',`Tài khoản: ${person.ma_tai_khoan || 'chưa có'} · ${person.account_status || '—'}`);
+      person.assignments.forEach(grant=>{
+        const detail=addText(card,'div','', 'mt-2 pl-3 border-l');
+        addText(detail,'p',`${grant.ma_vai_tro} · ${scopeLabel(grant)} · ${grant.effective ? 'đang hiệu lực' : grant.thu_hoi_luc ? 'đã thu hồi' : 'chưa hiệu lực / hết hạn'}`);
+        addText(detail,'p',`Từ ${grant.tu_ngay} đến ${grant.den_ngay || 'không thời hạn'} · ${grant.trang_thai}`);
+        addText(detail,'p',`Quyền: ${grant.permissions.join(', ')}`);
+        if (systemGrantAdmin() && grant.effective) {
+          const button=addText(detail,'button','Thu hồi','border rounded px-2 py-1 mt-1');
+          button.addEventListener('click',()=>accountAction(`/api/access/assignments/${grant.ma_phan_cong}/revoke`,'POST',{}));
+        }
+      });
+      if (person.ma_tai_khoan && systemGrantAdmin()) {
+        const controls=addText(card,'div','', 'flex flex-wrap gap-2 mt-3');
+        if (person.ma_tai_khoan !== currentUser.account_id) {
+          const next=person.account_status==='active'?'locked':'active';
+          const button=addText(controls,'button',next==='active'?'Kích hoạt':'Khóa','border rounded px-2 py-1');
+          button.addEventListener('click',()=>accountAction(`/api/access/accounts/${encodeURIComponent(person.ma_tai_khoan)}/status`,'PUT',{status:next}));
+        }
+        const password=document.createElement('input');
+        password.type='password';password.minLength=12;password.autocomplete='new-password';password.placeholder='Mật khẩu mới (12+ ký tự)';password.className='border rounded px-2 py-1';
+        controls.appendChild(password);
+        const reset=addText(controls,'button','Đặt lại mật khẩu','border rounded px-2 py-1');
+        reset.addEventListener('click',async()=>{if(password.value.length<12)return setStatus('accountsStatus','Mật khẩu cần ít nhất 12 ký tự.',true);const value=password.value;password.value='';await accountAction(`/api/access/accounts/${encodeURIComponent(person.ma_tai_khoan)}/password`,'PUT',{password:value});});
+      }
+    });
+    setVisible(document.getElementById('accountCreateSection'),can('employees.write') || can('auth.grant'));
+    setVisible(document.getElementById('roleGrantSection'),canGrant);
+    setStatus('accountsStatus',`${data.items.length} hồ sơ trong phạm vi quản trị.`);
+  } catch (error) {setStatus('accountsStatus',error.message,true);}
+}
+
+async function handleCreateAccount(event) {
+  event.preventDefault();
+  const password=document.getElementById('accountPassword');
+  const payload={employee_id:document.getElementById('accountEmployee').value,account_id:document.getElementById('accountId').value.trim(),password:password.value};
+  password.value='';
+  await accountAction('/api/access/accounts','POST',payload);
+  event.target.reset();
+}
+
+async function handleGrant(event) {
+  event.preventDefault();
+  const scope=document.getElementById('grantScope').value;
+  const key={region:'ma_khu_vuc',store:'ma_cua_hang',warehouse:'ma_kho'}[scope];
+  const id=document.getElementById('grantScopeId').value.trim();
+  if (key && !id) return setStatus('accountsStatus','Cần nhập mã phạm vi.',true);
+  const data={ma_tai_khoan:document.getElementById('grantAccount').value,ma_vai_tro:document.getElementById('grantRole').value,
+    pham_vi:scope,tu_ngay:new Date(document.getElementById('grantStart').value).toISOString(),
+    den_ngay:document.getElementById('grantEnd').value?new Date(document.getElementById('grantEnd').value).toISOString():null,
+    duoc_uy_quyen:document.getElementById('grantDelegable').checked};
+  if (key) data[key]=scope==='region'?Number(id):id;
+  await accountAction('/api/access/assignments','POST',data);
+}
+
+async function handlePasswordChange(event) {
+  event.preventDefault();
+  const form=event.currentTarget;
+  const currentPassword=document.getElementById('currentPassword');
+  const newPassword=document.getElementById('newPassword');
+  const confirmPassword=document.getElementById('confirmPassword');
+  if (newPassword.value !== confirmPassword.value) {
+    setStatus('passwordStatus','Mật khẩu mới nhập lại không khớp.',true);
+    return;
+  }
+  const current=currentPassword.value;
+  const next=newPassword.value;
+  currentPassword.value='';
+  newPassword.value='';
+  confirmPassword.value='';
+  try {
+    await changePassword(current,next);
+    setStatus('passwordStatus','Đã đổi mật khẩu. Phiên đăng nhập hiện tại vẫn được duy trì.',false);
+    showToast('Đã đổi mật khẩu.');
+  } catch (error) {
+    setStatus('passwordStatus',error.message,true);
+  } finally {
+    form.reset();
+  }
 }
 
 function toggleMobileMenu() {
@@ -202,41 +389,29 @@ function showLogin() {
   setVisible(document.getElementById('loginForm'), true);
 }
 
+function can(permission) {
+  return Boolean(currentUser?.permissions?.includes(permission));
+}
+
 function updateRoleNavigation(user) {
-  const manager = ['admin', 'regional_manager', 'store_manager'].includes(user.role);
-  const allowedTabs = manager
-    ? ['analytics', 'products', 'categories', 'settings', 'employees', ...(user.role === 'admin' ? ['queries'] : [])]
-    : ['products', 'categories', 'orders', 'distribution'];
+  const tabs = { analytics: 'reports.read', settings: 'stores.read', employees: 'employees.read',
+    queries: 'queries.execute', distribution: 'inventory.read',
+    products: 'catalog.read', categories: 'catalog.read' };
   document.querySelectorAll('.nav-btn').forEach(button => {
-    const visible = allowedTabs.includes(button.dataset.tab);
+    const visible = button.dataset.tab === 'my-account'
+      || (button.dataset.tab === 'accounts' ? can('employees.write') || can('auth.grant')
+        : button.dataset.tab === 'orders' ? can('sales.create') || can('sales.read')
+          : can(tabs[button.dataset.tab]));
     setVisible(button, visible);
     if (visible) button.classList.add('flex');
   });
-  setVisible(document.getElementById('employeeCreatePanel'), user.role !== 'staff');
-  const roleSelect = document.getElementById('employeeRole');
-  if (roleSelect) {
-    roleSelect.replaceChildren();
-    const options = user.role === 'admin'
-      ? ['regional_manager', 'store_manager', 'staff']
-      : user.role === 'regional_manager'
-        ? ['store_manager', 'staff']
-        : ['staff'];
-    options.forEach(role => {
-      const option = document.createElement('option');
-      option.value = role;
-      option.textContent = ROLE_NAMES[role];
-      roleSelect.appendChild(option);
-    });
-  }
+  setVisible(document.getElementById('employeeCreatePanel'), can('employees.write'));
+  setVisible(document.getElementById('orderCreateSection'),can('sales.create'));
+  setVisible(document.getElementById('orderHistorySection'),can('sales.read'));
+  setVisible(document.getElementById('orderExportButton'),can('reports.read'));
   const scope = document.getElementById('employeeScope');
-  if (scope) {
-    scope.textContent = user.role === 'admin'
-      ? 'Phạm vi: toàn hệ thống.'
-      : user.role === 'regional_manager'
-        ? `Phạm vi: ${REGION_NAMES[user.region_id] || 'khu vực được phân công'}.`
-        : `Phạm vi: cửa hàng ${user.store_id || 'được phân công'}.`;
-  }
-  updateEmployeeFormScope();
+  if (scope) scope.textContent = (user.assignments || []).map(g =>
+    `${ROLE_NAMES[g.ma_vai_tro] || g.ma_vai_tro}: ${g.pham_vi === 'system' ? 'toàn hệ thống' : g.ma_cua_hang || g.ma_kho || REGION_NAMES[g.ma_khu_vuc] || g.ma_khu_vuc}`).join(' · ');
 }
 
 async function showAuthenticated(user) {
@@ -246,9 +421,9 @@ async function showAuthenticated(user) {
   setVisible(document.getElementById('authPanel'), false);
   setVisible(document.getElementById('dashboardContent'), true);
   setVisible(document.getElementById('accountActions'), true);
-  document.getElementById('accountLabel').textContent = `${user.name} · ${ROLE_NAMES[user.role]}`;
+  document.getElementById('accountLabel').textContent = `${user.name} · ${ROLE_NAMES[user.role] || user.role}`;
   updateRoleNavigation(user);
-  switchTab(user.role === 'staff' ? 'orders' : 'analytics', false);
+  switchTab(can('reports.read') ? 'analytics' : can('sales.create') ? 'orders' : 'my-account', false);
   await triggerSync(false);
 }
 
@@ -355,7 +530,7 @@ async function loadStores() {
       name.textContent = store.ten_cua_hang;
       const details = document.createElement('p');
       details.className = 'text-xs text-zinc-500 mt-2 leading-relaxed';
-      details.textContent = `${store.ma_cua_hang} · ${REGION_NAMES[store.khu_vuc] || ''} · ${store.dia_chi} · ${store.so_dien_thoai}`;
+      details.textContent = `${store.ma_cua_hang} · ${store.ten_khu_vuc || store.khu_vuc} · ${store.dia_chi} · ${store.so_dien_thoai}`;
       card.append(name, details);
       container.appendChild(card);
     });
@@ -412,7 +587,12 @@ async function performEmployeeAction(employeeId, path, method, body, successMess
     showToast(successMessage);
     await loadEmployees();
   } catch (error) {
-    showToast(`Thao tác thất bại: ${error.message}`);
+    if (method === 'DELETE' && path.startsWith('/api/employees/')) {
+      setStatus('employeeStatus', `Không thể đuổi việc: ${error.message}`, true);
+      showToast('Không thể đuổi việc. Xem chi tiết trong thông báo nhân sự.');
+    } else {
+      showToast(`Thao tác thất bại: ${error.message}`);
+    }
   }
 }
 
@@ -422,11 +602,19 @@ async function loadEmployees() {
   setStatus('employeeStatus', 'Đang tải nhân sự...');
   body.replaceChildren();
   try {
-    const [employees, stores] = await Promise.all([
+    const [employees, stores, positions] = await Promise.all([
       apiRequest('/api/employees'),
-      apiRequest('/api/employees/stores')
+      can('employees.write') ? apiRequest('/api/employees/stores') : Promise.resolve({items: []}),
+      can('employees.write') ? apiRequest('/api/positions') : Promise.resolve({items: []})
     ]);
     employeeStores = stores.items;
+    const positionSelect = document.getElementById('employeePosition');
+    positionSelect.replaceChildren();
+    positions.items.forEach(position => {
+      const option=document.createElement('option');
+      option.value=position.ma_chuc_vu; option.textContent=position.ten_chuc_vu;
+      positionSelect.appendChild(option);
+    });
     const storeSelect = document.getElementById('employeeStore');
     if (storeSelect) {
       storeSelect.replaceChildren();
@@ -450,43 +638,45 @@ async function loadEmployees() {
         ? (REGION_NAMES[employee.khu_vuc_quan_ly] || 'Chưa gán')
         : `${employee.ma_cua_hang || '—'}${employee.ten_cua_hang ? ` · ${employee.ten_cua_hang}` : ''}`, 'px-3 text-zinc-700');
       appendCell(row, formatVND(employee.luong), 'px-3 text-zinc-700');
+      row.cells[2].textContent = employee.positions_workplaces || 'Chưa phân công';
 
       const actions = document.createElement('td');
       actions.className = 'pl-3 py-2';
       const isSelf = employee.ma_nhan_vien === currentUser.employee_id;
-      if (!isSelf && employee.quyen_han !== 'admin') {
+      if (!isSelf && can('employees.salary')) {
         const salary = document.createElement('input');
-        salary.type = 'number';
-        salary.min = '1';
-        salary.step = '1';
-        salary.value = employee.luong ?? '';
-        salary.placeholder = 'Lương';
+        salary.type = 'number'; salary.min = '0.01'; salary.step = '0.01';
+        salary.value = employee.luong;
         salary.className = 'w-28 rounded border px-2 py-1 text-xs mr-1';
         actions.appendChild(salary);
         actions.appendChild(makeAction('Lưu lương', () => {
           const value = Number(salary.value);
-          if (!Number.isInteger(value) || value <= 0) return showToast('Lương phải là số nguyên dương.');
-          performEmployeeAction(employee.ma_nhan_vien, `/api/employees/${encodeURIComponent(employee.ma_nhan_vien)}/salary`, 'PUT', { salary: value }, 'Đã cập nhật lương.');
+          if (!Number.isFinite(value) || value <= 0) return showToast('Lương phải lớn hơn 0.');
+          performEmployeeAction(employee.ma_nhan_vien, `/api/employees/${encodeURIComponent(employee.ma_nhan_vien)}/salary`, 'PUT', {salary: salary.value}, 'Đã cập nhật lương.');
         }));
-        if (employee.quyen_han === 'store_manager' && ['admin', 'regional_manager'].includes(currentUser.role)) {
-          actions.appendChild(makeAction('Hạ chức', () => {
-            performEmployeeAction(employee.ma_nhan_vien, `/api/employees/${encodeURIComponent(employee.ma_nhan_vien)}/demote`, 'POST', {}, 'Đã hạ chức xuống nhân viên.');
-          }));
-        } else if (employee.quyen_han === 'regional_manager' && currentUser.role === 'admin') {
-          const regionStores = employeeStores.filter(store => store.khu_vuc === employee.khu_vuc_quan_ly);
-          const storeSelect = document.createElement('select');
-          storeSelect.className = 'rounded border px-2 py-1 text-xs mr-1';
-          regionStores.forEach(store => {
-            const option = document.createElement('option');
-            option.value = store.ma_cua_hang;
-            option.textContent = store.ma_cua_hang;
+      }
+      if (!isSelf && can('employees.write')) {
+        const status=employee.trang_thai==='active'?'inactive':'active';
+        actions.appendChild(makeAction(status==='inactive'?'Ngừng làm việc':'Kích hoạt nhân viên', () => {
+          performEmployeeAction(employee.ma_nhan_vien, `/api/employees/${encodeURIComponent(employee.ma_nhan_vien)}/status`, 'PUT', {status},
+            status==='inactive'?'Đã ngừng làm việc và khóa đăng nhập.':'Đã kích hoạt nhân sự; tài khoản đăng nhập vẫn cần được kích hoạt riêng.');
+        }));
+        if (employeeStores.length) {
+          const storeSelect=document.createElement('select');
+          storeSelect.className='rounded border px-2 py-1 text-xs mr-1';
+          employeeStores.forEach(store=>{
+            const option=document.createElement('option');
+            option.value=store.ma_cua_hang;
+            option.textContent=`${store.ma_cua_hang} · ${store.ten_cua_hang}`;
+            option.selected=store.ma_cua_hang===employee.ma_cua_hang;
             storeSelect.appendChild(option);
           });
           actions.appendChild(storeSelect);
-          actions.appendChild(makeAction('Hạ chức', () => {
-            if (!storeSelect.value) return showToast('Không có cửa hàng trong khu vực để phân công.');
-            performEmployeeAction(employee.ma_nhan_vien, `/api/employees/${encodeURIComponent(employee.ma_nhan_vien)}/demote`, 'POST', { store_id: storeSelect.value }, 'Đã hạ chức xuống nhân viên.');
-          }, regionStores.length === 0));
+          actions.appendChild(makeAction('Chuyển cửa hàng',()=>{
+            if (storeSelect.value===employee.ma_cua_hang) return showToast('Nhân viên đã làm việc tại cửa hàng này.');
+            performEmployeeAction(employee.ma_nhan_vien,`/api/employees/${encodeURIComponent(employee.ma_nhan_vien)}/work`,'POST',
+              {store_id:storeSelect.value},'Đã cập nhật nơi làm việc.');
+          }));
         }
       }
       row.appendChild(actions);
@@ -501,17 +691,11 @@ async function loadEmployees() {
   }
 }
 
-function updateEmployeeFormScope() {
-  const role = document.getElementById('employeeRole').value;
-  setVisible(document.getElementById('employeeRegion'), role === 'regional_manager');
-  setVisible(document.getElementById('employeeStore'), role !== 'regional_manager');
-}
 
 async function handleCreateEmployee(event) {
   event.preventDefault();
-  const role = document.getElementById('employeeRole').value;
   const salary = Number(document.getElementById('employeeSalary').value);
-  if (!Number.isInteger(salary) || salary <= 0) {
+  if (!Number.isFinite(salary) || salary <= 0) {
     setStatus('employeeFormStatus', 'Lương phải là số nguyên dương theo ràng buộc database.', true);
     return;
   }
@@ -520,9 +704,8 @@ async function handleCreateEmployee(event) {
     name: document.getElementById('employeeName').value.trim(),
     phone: document.getElementById('employeePhone').value.trim(),
     email: document.getElementById('employeeEmail').value.trim(),
-    role,
-    store_id: role === 'regional_manager' ? null : document.getElementById('employeeStore').value,
-    region_id: role === 'regional_manager' ? Number(document.getElementById('employeeRegion').value) : null,
+    store_id: document.getElementById('employeeStore').value,
+    position_id: document.getElementById('employeePosition').value,
     salary
   };
   try {
@@ -532,7 +715,7 @@ async function handleCreateEmployee(event) {
       body: JSON.stringify(payload)
     });
     document.getElementById('employeeForm').reset();
-    setStatus('employeeFormStatus', `Đã tạo ${result.employee_id}; mật khẩu ban đầu là mã nhân viên.`);
+    setStatus('employeeFormStatus', `Đã tạo ${result.employee_id}; hồ sơ nhân sự chưa có tài khoản đăng nhập hoặc quyền.`);
     showToast('Đã tạo nhân sự.');
     await loadEmployees();
   } catch (error) {
@@ -541,15 +724,31 @@ async function handleCreateEmployee(event) {
 }
 
 async function loadOrderFormData() {
-  if (!currentUser || currentUser.role !== 'staff') return false;
+  if (!currentUser || !can('sales.create')) return false;
   const customerSelect = document.getElementById('orderCustomer');
   const productSelect = document.getElementById('orderProduct');
   setStatus('orderStatus', 'Đang tải khách hàng và sản phẩm...');
   try {
-    const [customers, products] = await Promise.all([
+    const [customers, products, stores, warehouses] = await Promise.all([
       apiRequest('/api/customers'),
-      apiRequest('/api/products?limit=100&offset=0')
+      apiRequest('/api/products?limit=100&offset=0'),
+      apiRequest('/api/stores?permission=sales.create'),
+      can('inventory.read') ? apiRequest('/api/warehouses') : Promise.resolve({items: []})
     ]);
+    const storeSelect = document.getElementById('orderStore');
+    storeSelect.replaceChildren();
+    stores.items.forEach(store => {
+      const option = document.createElement('option');
+      option.value = store.ma_cua_hang; option.textContent = `${store.ma_cua_hang} · ${store.ten_cua_hang}`;
+      storeSelect.appendChild(option);
+    });
+    function fillWarehouses() {
+      const select = document.getElementById('orderWarehouse'); select.replaceChildren();
+      warehouses.items.filter(w => w.ma_cua_hang === storeSelect.value).forEach(w => {
+        const option = document.createElement('option'); option.value = w.ma_kho; option.textContent = w.ten_kho; select.appendChild(option);
+      });
+    }
+    storeSelect.onchange = fillWarehouses; fillWarehouses();
     customerSelect.replaceChildren();
     productSelect.replaceChildren();
     customers.items.forEach(customer => {
@@ -561,7 +760,7 @@ async function loadOrderFormData() {
     products.items.forEach(product => {
       const option = document.createElement('option');
       option.value = product.ma_san_pham;
-      option.textContent = `${product.ten_san_pham} · ${product.ma_san_pham} · ${formatVND(product.gia_ban)}`;
+      option.textContent = `${product.ten_san_pham} · ${product.ma_san_pham} · ${product.mau_sac} · ${product.kich_co} · ${formatVND(product.gia_ban)}`;
       productSelect.appendChild(option);
     });
     if (!customers.items.length) setStatus('orderStatus', 'Chưa có khách hàng trong database.');
@@ -579,11 +778,30 @@ async function handleCreateOrder(event) {
   button.disabled = true;
   setStatus('orderStatus', 'Đang tạo đơn...');
   try {
+    let customerId = document.getElementById('orderCustomer').value;
+    const newName = document.getElementById('newCustomerName').value.trim();
+    const newPhone = document.getElementById('newCustomerPhone').value.trim();
+    if (newName || newPhone) {
+      if (!newName || !newPhone) throw new Error('Nhập đủ tên và số điện thoại khách mới.');
+      const created = await apiRequest('/api/customers', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({customer_id: `KH${crypto.randomUUID().replaceAll('-', '').slice(0,18)}`, name: newName, phone: newPhone})
+      });
+      customerId = created.customer_id;
+      const option = document.createElement('option'); option.value = customerId; option.textContent = `${newName} · ${customerId}`;
+      document.getElementById('orderCustomer').appendChild(option);
+      document.getElementById('orderCustomer').value = customerId;
+      document.getElementById('newCustomerName').value = '';
+      document.getElementById('newCustomerPhone').value = '';
+    }
+    if (!customerId) throw new Error('Chọn khách hàng hoặc nhập thông tin khách mới.');
     const result = await apiRequest('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        customer_id: document.getElementById('orderCustomer').value,
+        customer_id: customerId,
+        store_id: document.getElementById('orderStore').value,
+        warehouse_id: document.getElementById('orderWarehouse').value || null,
         details: [{
           product_id: document.getElementById('orderProduct').value,
           quantity: Number(document.getElementById('orderQuantity').value)
@@ -592,6 +810,8 @@ async function handleCreateOrder(event) {
     });
     setStatus('orderStatus', `Tạo đơn thành công: ${result.order_id}.`);
     showToast(`Đã tạo đơn ${result.order_id}.`);
+    if (can('sales.read')) await loadOrders();
+    if (can('inventory.read')) await loadDistribution();
   } catch (error) {
     setStatus('orderStatus', `Không thể tạo đơn: ${error.message}`, true);
     showToast(`Tạo đơn thất bại: ${error.message}`);
@@ -600,27 +820,256 @@ async function handleCreateOrder(event) {
   }
 }
 
+async function loadOrders() {
+  const body=document.getElementById('orderHistoryBody');
+  if (!body||!can('sales.read')) return false;
+  body.replaceChildren();
+  setStatus('orderHistoryStatus','Đang tải đơn hàng...');
+  try {
+    const {items}=await apiRequest('/api/orders?limit=100&offset=0');
+    if (!items.length) renderMessage(body,'Chưa có đơn hàng trong phạm vi được phép.');
+    items.forEach(order=>{
+      const row=document.createElement('tr');
+      appendCell(row,`${order.ma_don_hang} · ${order.ngay_tao_don}`);
+      appendCell(row,`${order.ma_cua_hang} · ${order.ten_cua_hang||''}`,'px-3');
+      appendCell(row,order.trang_thai==='cancelled'?'Đã hủy':'Hoàn tất','px-3');
+      appendCell(row,order.quantity,'px-3');
+      appendCell(row,formatVND(order.total),'px-3');
+      const actions=document.createElement('td');
+      actions.className='pl-3 py-2';
+      const details=addText(actions,'button','Chi tiết','border rounded px-2 py-1 mr-1');
+      details.addEventListener('click',()=>showOrderDetails(order.ma_don_hang,row));
+      if (can('sales.cancel')&&order.trang_thai==='completed') {
+        const cancel=addText(actions,'button','Hủy đơn','border rounded px-2 py-1 text-red-700');
+        cancel.addEventListener('click',()=>cancelOrder(order.ma_don_hang));
+      }
+      row.appendChild(actions);
+      body.appendChild(row);
+    });
+    setStatus('orderHistoryStatus',`${items.length} đơn hàng gần nhất trong phạm vi được phép.`);
+    return true;
+  } catch (error) {
+    renderMessage(body,`Không thể tải đơn hàng: ${error.message}`,'text-red-600');
+    setStatus('orderHistoryStatus',error.message,true);
+    return false;
+  }
+}
+
+async function showOrderDetails(orderId,row) {
+  const existing=row.nextElementSibling;
+  if (existing&&existing.dataset.orderDetails===orderId) {
+    existing.remove();
+    return;
+  }
+  try {
+    const order=await apiRequest(`/api/orders/${encodeURIComponent(orderId)}`);
+    const detailRow=document.createElement('tr');
+    detailRow.dataset.orderDetails=orderId;
+    const cell=addText(detailRow,'td','', 'px-4 py-3 bg-white text-sm');
+    cell.colSpan=6;
+    order.details.forEach(line=>addText(cell,'p',`${line.ma_san_pham} · ${line.so_luong} sản phẩm · ${formatVND(line.don_gia_ban)} · Giảm ${formatVND(line.giam_gia)}`));
+    row.parentElement.insertBefore(detailRow,row.nextSibling);
+  } catch (error) {
+    setStatus('orderHistoryStatus',`Không thể tải chi tiết ${orderId}: ${error.message}`,true);
+  }
+}
+
+async function cancelOrder(orderId) {
+  try {
+    await apiRequest(`/api/orders/${encodeURIComponent(orderId)}/cancel`,{method:'POST'});
+    showToast(`Đã hủy đơn ${orderId} và hoàn kho.`);
+    await Promise.all([loadOrders(),can('inventory.read')?loadDistribution():Promise.resolve(true)]);
+  } catch (error) {
+    setStatus('orderHistoryStatus',`Không thể hủy đơn ${orderId}: ${error.message}`,true);
+  }
+}
+
+async function downloadOrders() {
+  try {
+    await apiDownload('/api/orders/export','orders.csv');
+  } catch (error) {
+    setStatus('orderHistoryStatus',`Không thể tải CSV: ${error.message}`,true);
+  }
+}
+
+async function loadBusinessReport() {
+  const body=document.getElementById('reportTableBody');
+  if (!body||!can('reports.read')) return false;
+  const start=document.getElementById('reportStart').value;
+  const end=document.getElementById('reportEnd').value;
+  if (!start||!end) {
+    setStatus('reportStatus','Chọn khoảng ngày để xem báo cáo.');
+    return false;
+  }
+  body.replaceChildren();
+  setStatus('reportStatus','Đang tổng hợp báo cáo...');
+  try {
+    const group=document.getElementById('reportGroup').value;
+    const {sales}=await apiRequest(`/api/reports?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&group=${encodeURIComponent(group)}`);
+    if (!sales.length) renderMessage(body,'Không có doanh thu trong khoảng ngày này.');
+    sales.forEach(item=>{
+      const row=document.createElement('tr');
+      appendCell(row,item.ma??'—');
+      appendCell(row,item.so_don,'px-3');
+      appendCell(row,item.so_luong??0,'px-3');
+      appendCell(row,formatVND(item.doanh_thu),'pl-3');
+      body.appendChild(row);
+    });
+    setStatus('reportStatus',`${sales.length} nhóm doanh thu · ${start} đến ${end}.`);
+    return true;
+  } catch (error) {
+    renderMessage(body,`Không thể tải báo cáo: ${error.message}`,'text-red-600');
+    setStatus('reportStatus',error.message,true);
+    return false;
+  }
+}
+
+async function handleBusinessReport(event) {
+  event.preventDefault();
+  await loadBusinessReport();
+}
+
 async function loadDistribution() {
   const body = document.getElementById('distributionTableBody');
   if (!body) return false;
   body.replaceChildren();
-  setStatus('distributionStatus', 'Đang tải số lượng phân phối...');
+  setStatus('distributionStatus', 'Đang tải tồn kho theo SKU...');
   try {
-    const { items } = await apiRequest('/api/employee/distribution');
-    if (!items.length) renderMessage(body, 'Chưa có dữ liệu phân phối cho cửa hàng.');
+    const [inventory,movementData]=await Promise.all([
+      apiRequest('/api/inventory'),
+      apiRequest('/api/inventory/movements')
+    ]);
+    const {items}=inventory;
+    if (!items.length) renderMessage(body, 'Chưa có dữ liệu tồn kho cho cửa hàng.');
     items.forEach(item => {
       const row = document.createElement('tr');
       appendCell(row, `${item.ten_san_pham} · ${item.mau_sac} · ${item.kich_co}`);
-      appendCell(row, item.ma_san_pham, 'px-3 text-zinc-700');
-      appendCell(row, item.so_luong_phan_phoi, 'pl-3 text-zinc-700');
+      appendCell(row, `${item.ma_san_pham} · ${item.ma_kho}`,  'px-3 text-zinc-700');
+      appendCell(row, item.so_luong, 'pl-3 text-zinc-700');
       body.appendChild(row);
     });
-    setStatus('distributionStatus', `${items.length} sản phẩm có dữ liệu phân phối. Đây không phải tồn kho hiện tại.`);
+    setStatus('distributionStatus', `${items.length} sản phẩm có dữ liệu tồn kho. Số lượng đã ghi nhận theo từng kho.`);
+    await loadInventoryActions();
+    renderMovements(movementData.items);
     return true;
   } catch (error) {
     renderMessage(body, `Không thể tải phân phối: ${error.message}`, 'text-red-600');
     setStatus('distributionStatus', `Không thể tải dữ liệu: ${error.message}`, true);
     return false;
+  }
+}
+
+async function loadInventoryActions() {
+  const canAdjust=can('inventory.adjust');
+  const canTransfer=can('inventory.transfer');
+  setVisible(document.getElementById('inventoryActions'),canAdjust||canTransfer);
+  setVisible(document.getElementById('adjustmentForm'),canAdjust);
+  setVisible(document.getElementById('transferForm'),canTransfer);
+  if (!canAdjust&&!canTransfer) return;
+  const [warehouses,products]=await Promise.all([
+    apiRequest('/api/warehouses'),
+    apiRequest('/api/products?limit=100&offset=0')
+  ]);
+  const addOptions=(select,items,value,label)=>{
+    select.replaceChildren();
+    items.forEach(item=>{
+      const option=document.createElement('option');
+      option.value=item[value];
+      option.textContent=label(item);
+      select.appendChild(option);
+    });
+  };
+  if (canAdjust) {
+    addOptions(document.getElementById('adjustWarehouse'),warehouses.items,'ma_kho',item=>`${item.ma_kho} · ${item.ten_kho}`);
+    addOptions(document.getElementById('adjustProduct'),products.items,'ma_san_pham',item=>`${item.ma_san_pham} · ${item.ten_san_pham} · ${item.mau_sac} · ${item.kich_co}`);
+  }
+  if (canTransfer) {
+    addOptions(document.getElementById('transferSource'),warehouses.items,'ma_kho',item=>`${item.ma_kho} · ${item.ten_kho}`);
+    addOptions(document.getElementById('transferTarget'),warehouses.items,'ma_kho',item=>`${item.ma_kho} · ${item.ten_kho}`);
+    addOptions(document.getElementById('transferProduct'),products.items,'ma_san_pham',item=>`${item.ma_san_pham} · ${item.ten_san_pham} · ${item.mau_sac} · ${item.kich_co}`);
+  }
+}
+
+function renderMovements(movements) {
+  const body=document.getElementById('movementTableBody');
+  body.replaceChildren();
+  if (!movements.length) renderMessage(body,'Chưa có biến động kho.');
+  const reversed=new Set(movements.filter(item=>item.loai==='cancel_transfer').map(item=>item.ma_phan_phoi));
+  const shownTransfers=new Set();
+  movements.forEach(item=>{
+    const row=document.createElement('tr');
+    appendCell(row,item.tao_luc);
+    appendCell(row,`${item.ma_kho} · ${item.ma_san_pham}`,'px-3');
+    appendCell(row,item.loai,'px-3');
+    appendCell(row,item.so_luong,'px-3');
+    appendCell(row,`${item.ly_do}${item.ma_don_hang?` · ${item.ma_don_hang}`:''}${item.ma_phan_phoi?` · ${item.ma_phan_phoi}`:''}`,'px-3');
+    const actions=document.createElement('td');
+    actions.className='pl-3 py-2';
+    if (can('inventory.transfer')&&item.ma_phan_phoi&&item.loai==='transfer'
+        &&!reversed.has(item.ma_phan_phoi)&&!shownTransfers.has(item.ma_phan_phoi)) {
+      shownTransfers.add(item.ma_phan_phoi);
+      const button=addText(actions,'button','Hủy phiếu','border rounded px-2 py-1 text-red-700');
+      button.addEventListener('click',()=>cancelTransfer(item.ma_phan_phoi));
+    }
+    row.appendChild(actions);
+    body.appendChild(row);
+  });
+  setStatus('movementStatus',`${movements.length} biến động gần nhất.`);
+}
+
+async function handleAdjustment(event) {
+  event.preventDefault();
+  try {
+    await apiRequest('/api/inventory/adjustments',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        warehouse_id:document.getElementById('adjustWarehouse').value,
+        product_id:document.getElementById('adjustProduct').value,
+        quantity:Number(document.getElementById('adjustQuantity').value),
+        reason:document.getElementById('adjustReason').value.trim()
+      })
+    });
+    event.currentTarget.reset();
+    setStatus('adjustmentStatus','Đã ghi nhận điều chỉnh tồn kho.');
+    await loadDistribution();
+  } catch (error) {
+    setStatus('adjustmentStatus',error.message,true);
+  }
+}
+
+async function handleTransfer(event) {
+  event.preventDefault();
+  const source=document.getElementById('transferSource').value;
+  const target=document.getElementById('transferTarget').value;
+  if (!source||!target||source===target) {
+    setStatus('transferStatus','Chọn hai kho khác nhau.',true);
+    return;
+  }
+  try {
+    const result=await apiRequest('/api/inventory/transfers',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        source_id:source,
+        target_id:target,
+        details:[{product_id:document.getElementById('transferProduct').value,quantity:Number(document.getElementById('transferQuantity').value)}]
+      })
+    });
+    setStatus('transferStatus',`Đã tạo phiếu ${result.transfer_id}.`);
+    await loadDistribution();
+  } catch (error) {
+    setStatus('transferStatus',error.message,true);
+  }
+}
+
+async function cancelTransfer(transferId) {
+  try {
+    await apiRequest(`/api/inventory/transfers/${encodeURIComponent(transferId)}/cancel`,{method:'POST'});
+    showToast(`Đã hủy phiếu ${transferId} và hoàn tồn kho.`);
+    await loadDistribution();
+  } catch (error) {
+    setStatus('movementStatus',`Không thể hủy phiếu ${transferId}: ${error.message}`,true);
   }
 }
 
@@ -638,8 +1087,8 @@ async function checkBackendHealth() {
     return true;
   } catch (error) {
     dot.className = 'w-2 h-2 rounded-full bg-red-600 inline-block';
-    title.textContent = 'Database chưa kết nối';
-    description.textContent = error.message;
+    title.textContent = 'Kiểm tra trạng thái gặp lỗi';
+    description.textContent = 'Không đọc được /api/health/db. Xem log backend và tải lại; các số liệu khác có thể vẫn hoạt động.';
     return false;
   }
 }
@@ -651,9 +1100,13 @@ async function triggerSync(notify = true) {
   button.disabled = true;
   text.textContent = 'Đang tải dữ liệu...';
   try {
-    const tasks = currentUser.role === 'staff'
-      ? [checkBackendHealth(), loadProducts(), loadCategories(), loadOrderFormData(), loadDistribution()]
-      : [checkBackendHealth(), loadProducts(), loadCategories(), loadStores(), loadAnalyticsSummary(), loadSalesAnalytics()];
+    const tasks = [checkBackendHealth()];
+    if (can('catalog.read')) tasks.push(loadProducts(),loadCategories());
+    if (can('stores.read')) tasks.push(loadStores());
+    if (can('reports.read')) tasks.push(loadAnalyticsSummary(), loadSalesAnalytics());
+    if (can('sales.create')) tasks.push(loadOrderFormData());
+    if (can('sales.read')) tasks.push(loadOrders());
+    if (can('inventory.read')) tasks.push(loadDistribution());
     const results = await Promise.allSettled(tasks);
     const success = results.every(result => result.status === 'fulfilled' && result.value === true);
     if (notify) showToast(success ? 'Đã tải lại dữ liệu từ database.' : 'Tải dữ liệu chưa hoàn tất. Xem lỗi tại từng mục.');
@@ -669,8 +1122,14 @@ window.onload = function () {
   document.getElementById('mobileMenuBtn').addEventListener('click', toggleMobileMenu);
   document.getElementById('loginForm').addEventListener('submit', handleLogin);
   document.getElementById('employeeForm').addEventListener('submit', handleCreateEmployee);
-  document.getElementById('employeeRole').addEventListener('change', updateEmployeeFormScope);
+  document.getElementById('accountForm').addEventListener('submit', handleCreateAccount);
+  document.getElementById('passwordForm').addEventListener('submit', handlePasswordChange);
+  document.getElementById('grantForm').addEventListener('submit', handleGrant);
+  document.getElementById('grantScope').addEventListener('change',renderGrantScopeOptions);
   document.getElementById('orderForm').addEventListener('submit', handleCreateOrder);
+  document.getElementById('reportForm').addEventListener('submit', handleBusinessReport);
+  document.getElementById('adjustmentForm').addEventListener('submit', handleAdjustment);
+  document.getElementById('transferForm').addEventListener('submit', handleTransfer);
   showLogin();
   return false;
 };

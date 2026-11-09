@@ -1,89 +1,101 @@
--- Query ID: M02_Q01
--- Title: Nhan vien va cua hang 1
--- Level: 1 - basic
--- Tables: nhan_vien,cua_hang
--- Techniques: JOIN
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT nv.ma_nhan_vien,nv.ho_ten,ch.ten_cua_hang FROM nhan_vien nv JOIN cua_hang ch ON ch.ma_cua_hang=nv.ma_cua_hang WHERE nv.ho_ten LIKE '%1%' ORDER BY nv.ma_nhan_vien;
+-- 1. Hiển thị toàn bộ danh sách sản phẩm.
+SELECT *
+FROM v_san_pham;
 
+-- 2. Hiển thị mã, họ tên và lương của nhân viên tại CH001.
+SELECT ma_nhan_vien, ho_ten, luong
+FROM v_nhan_vien
+WHERE ma_cua_hang = 'CH001';
+-- 3. Tìm đơn hàng được tạo trong tháng 3 năm 2026.
+SELECT *
+FROM v_don_hang
+WHERE MONTH(ngay_tao_don) = 3
+  AND YEAR(ngay_tao_don) = 2026;
+-- 4. Tìm sản phẩm có tên chứa từ "Giày".
+SELECT *
+FROM v_san_pham
+WHERE ten_san_pham LIKE '%Giày%';
+-- 5. Tìm sản phẩm có giá lớn hơn 540.000 đồng.
+SELECT ma_san_pham, ten_san_pham, gia_san_pham
+FROM v_san_pham
+WHERE gia_san_pham > 540000;
+-- 6. Hiển thị chi tiết đơn DH003.
+-- Thành tiền dùng đơn giá và giảm giá lịch sử đã lưu trên đơn.
+SELECT A.ma_don_hang, B.ma_san_pham, B.ten_san_pham,
+       A.so_luong, A.don_gia_ban, A.giam_gia,
+       (A.so_luong * A.don_gia_ban - A.giam_gia)
+FROM v_chi_tiet_don_hang A, v_san_pham B
+WHERE A.ma_san_pham = B.ma_san_pham
+  AND A.ma_don_hang = 'DH003';
+-- 7. Hiển thị các khách hàng từng mua sản phẩm SP001.
+SELECT DISTINCT A.ma_khach_hang, A.ho_ten, A.so_dien_thoai
+FROM khach_hang A, v_don_hang B, v_chi_tiet_don_hang C
+WHERE A.ma_khach_hang = B.ma_khach_hang
+  AND B.ma_don_hang = C.ma_don_hang
+  AND C.ma_san_pham = 'SP001';
+-- 8. Hiển thị các khách hàng từng mua tại cửa hàng CH002.
+SELECT DISTINCT A.ma_khach_hang, A.ho_ten
+FROM khach_hang A, v_don_hang B, v_nhan_vien C
+WHERE A.ma_khach_hang = B.ma_khach_hang
+  AND B.ma_nhan_vien = C.ma_nhan_vien
+  AND B.ma_cua_hang = 'CH002';
+-- 9. Hiển thị sản phẩm đã bán trong tháng 6 năm 2026.
+SELECT DISTINCT A.ma_san_pham, A.ten_san_pham
+FROM v_san_pham A, v_chi_tiet_don_hang B, v_don_hang C
+WHERE A.ma_san_pham = B.ma_san_pham
+  AND B.ma_don_hang = C.ma_don_hang
+  AND MONTH(C.ngay_tao_don) = 6
+  AND YEAR(C.ngay_tao_don) = 2026;
+-- 10. Sắp xếp nhân viên theo lương giảm dần,
+-- nếu bằng lương thì mã nhân viên tăng dần.
+SELECT ma_nhan_vien, ho_ten, luong
+FROM v_nhan_vien
+ORDER BY luong DESC, ma_nhan_vien ASC;
+-- 11. Hiển thị sản phẩm có tổng số lượng đã bán trên 20.
+SELECT A.ma_san_pham, A.ten_san_pham, SUM(B.so_luong) as tong_so_luong
+FROM v_san_pham A, v_chi_tiet_don_hang B
+WHERE A.ma_san_pham = B.ma_san_pham
+GROUP BY A.ma_san_pham, A.ten_san_pham
+HAVING SUM(B.so_luong) > 20;
+-- 12. Thống kê số đơn hàng của từng nhân viên đã bán hàng.
+SELECT A.ma_nhan_vien, A.ho_ten, COUNT(B.ma_don_hang) AS so_don_hang
+FROM v_nhan_vien A, v_don_hang B
+WHERE A.ma_nhan_vien = B.ma_nhan_vien
+GROUP BY A.ma_nhan_vien, A.ho_ten;
+-- 13. Tìm nhân viên có lương cao hơn lương trung bình.
+SELECT ma_nhan_vien, ho_ten, luong
+FROM v_nhan_vien
+WHERE luong > (
+    SELECT AVG(luong)
+    FROM v_nhan_vien
+);
+-- 14. Giá thấp nhất, cao nhất và trung bình theo danh mục.
+SELECT A.ma_danh_muc, A.ten_danh_muc,
+       (SELECT MIN(B.gia_san_pham)
+        FROM v_san_pham B
+        WHERE B.ma_danh_muc = A.ma_danh_muc) AS gia_thap_nhat,
 
--- Query ID: M02_Q02
--- Title: Nhan vien va cua hang 2
--- Level: 1 - basic
--- Tables: nhan_vien,cua_hang
--- Techniques: WHERE, string function
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_nhan_vien,ho_ten,LOWER(email) AS email_thuong FROM nhan_vien WHERE ma_cua_hang='CH02' ORDER BY ho_ten;
+       (SELECT MAX(B.gia_san_pham)
+        FROM v_san_pham B
+        WHERE B.ma_danh_muc = A.ma_danh_muc) AS gia_cao_nhat,
 
+       (SELECT AVG(B.gia_san_pham)
+        FROM v_san_pham B
+        WHERE B.ma_danh_muc = A.ma_danh_muc) AS gia_trung_binh
 
--- Query ID: M02_Q03
--- Title: Nhan vien va cua hang 3
--- Level: 1 - basic
--- Tables: nhan_vien,cua_hang
--- Techniques: JOIN
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT nv.ma_nhan_vien,nv.ho_ten,ch.ten_cua_hang FROM nhan_vien nv JOIN cua_hang ch ON ch.ma_cua_hang=nv.ma_cua_hang WHERE nv.ho_ten LIKE '%3%' ORDER BY nv.ma_nhan_vien;
-
-
--- Query ID: M02_Q04
--- Title: Nhan vien va cua hang 4
--- Level: 1 - basic
--- Tables: nhan_vien,cua_hang
--- Techniques: WHERE, string function
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_nhan_vien,ho_ten,LOWER(email) AS email_thuong FROM nhan_vien WHERE ma_cua_hang='CH04' ORDER BY ho_ten;
-
-
--- Query ID: M02_Q05
--- Title: Nhan vien va cua hang 5
--- Level: 2 - join
--- Tables: nhan_vien,cua_hang
--- Techniques: JOIN
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT nv.ma_nhan_vien,nv.ho_ten,ch.ten_cua_hang FROM nhan_vien nv JOIN cua_hang ch ON ch.ma_cua_hang=nv.ma_cua_hang WHERE nv.ho_ten LIKE '%5%' ORDER BY nv.ma_nhan_vien;
-
-
--- Query ID: M02_Q06
--- Title: Nhan vien va cua hang 6
--- Level: 2 - join
--- Tables: nhan_vien,cua_hang
--- Techniques: WHERE, string function
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_nhan_vien,ho_ten,LOWER(email) AS email_thuong FROM nhan_vien WHERE ma_cua_hang='CH06' ORDER BY ho_ten;
-
-
--- Query ID: M02_Q07
--- Title: Nhan vien va cua hang 7
--- Level: 2 - join
--- Tables: nhan_vien,cua_hang
--- Techniques: JOIN
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT nv.ma_nhan_vien,nv.ho_ten,ch.ten_cua_hang FROM nhan_vien nv JOIN cua_hang ch ON ch.ma_cua_hang=nv.ma_cua_hang WHERE nv.ho_ten LIKE '%7%' ORDER BY nv.ma_nhan_vien;
-
-
--- Query ID: M02_Q08
--- Title: Nhan vien va cua hang 8
--- Level: 3 - aggregate/subquery
--- Tables: nhan_vien,cua_hang
--- Techniques: WHERE, string function
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_nhan_vien,ho_ten,LOWER(email) AS email_thuong FROM nhan_vien WHERE ma_cua_hang='CH08' ORDER BY ho_ten;
-
-
--- Query ID: M02_Q09
--- Title: Nhan vien va cua hang 9
--- Level: 3 - aggregate/subquery
--- Tables: nhan_vien,cua_hang
--- Techniques: JOIN
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT nv.ma_nhan_vien,nv.ho_ten,ch.ten_cua_hang FROM nhan_vien nv JOIN cua_hang ch ON ch.ma_cua_hang=nv.ma_cua_hang WHERE nv.ho_ten LIKE '%9%' ORDER BY nv.ma_nhan_vien;
-
-
--- Query ID: M02_Q10
--- Title: Nhan vien va cua hang 10
--- Level: 3 - aggregate/subquery
--- Tables: nhan_vien,cua_hang
--- Techniques: WHERE, string function
--- Expected: Ket qua co y nghia voi seed deterministic
-SELECT ma_nhan_vien,ho_ten,LOWER(email) AS email_thuong FROM nhan_vien WHERE ma_cua_hang='CH10' ORDER BY ho_ten;
-
+FROM danh_muc A;
+-- 15. Tìm sản phẩm mà cả KH003 và KH002 đều từng mua.
+SELECT A.ma_san_pham, A.ten_san_pham
+FROM v_san_pham A
+WHERE A.ma_san_pham IN (
+    SELECT B.ma_san_pham
+    FROM v_chi_tiet_don_hang B, v_don_hang C
+    WHERE B.ma_don_hang = C.ma_don_hang
+      AND C.ma_khach_hang = 'KH003'
+)
+AND A.ma_san_pham IN (
+    SELECT D.ma_san_pham
+    FROM v_chi_tiet_don_hang D, v_don_hang E
+    WHERE D.ma_don_hang = E.ma_don_hang
+      AND E.ma_khach_hang = 'KH002'
+);

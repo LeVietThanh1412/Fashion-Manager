@@ -1,3 +1,5 @@
+> T?i li?u l?u tr? tr??c schema v3; kh?ng d?ng l?nh ho?c m? h?nh b?n d??i ?? kh?i t?o. Xem [quy tr?nh hi?n h?nh](../README.md), [ERD](erd.md) v? [ph?n quy?n](permissions.md).
+
 # Chương 2 - Phân tích và thiết kế CSDL
 
 Mô hình gồm chín quan hệ theo schema gốc. Khóa chính là mã của từng thực thể; hai bảng chi

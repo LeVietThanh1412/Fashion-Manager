@@ -1,3 +1,5 @@
+> T?i li?u l?u tr? tr??c schema v3; kh?ng d?ng l?nh ho?c m? h?nh b?n d??i ?? kh?i t?o. Xem [quy tr?nh hi?n h?nh](../README.md), [ERD](erd.md) v? [ph?n quy?n](permissions.md).
+
 # Chương 3 - Cài đặt và khai thác
 
 Database dùng MySQL 8.0.31+ với InnoDB/utf8mb4. Chạy schema theo thứ tự
@@ -5,7 +7,7 @@ Database dùng MySQL 8.0.31+ với InnoDB/utf8mb4. Chạy schema theo thứ tự
 danh mục, 20 cửa hàng, 60 sản phẩm, 40 nhân viên, 40 phiếu phân phối, 120 dòng phân phối,
 50 khách, 80 đơn và 160 dòng đơn.
 
-Năm file `sql/query/member_01.sql` đến `member_05.sql` có đúng 50 mã query. `scripts/check_queries.py`
+Năm file `sql/query/member_01.sql` đến `member_05.sql` có đúng 75 mã query, mỗi thành viên có 15 truy vấn. `scripts/check_queries.py`
 đã kiểm tra tĩnh và PASS 50 ID; việc chạy SQL thực tế cần MySQL server. Backend đọc statement
 từ `sql/app`, bind parameter MySQL Connector/Python và không nhận raw SQL.
 

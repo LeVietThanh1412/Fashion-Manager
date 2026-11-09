@@ -12,7 +12,8 @@ class AcademicQuery:
 
 _ID_RE = re.compile(r"-- Query ID: (M\d{2}_Q\d{2})\r?\n")
 _TITLE_RE = re.compile(r"-- Title: (.+)\r?\n")
-_NUMBERED_QUERY_RE = re.compile(r"(?m)^--\s+(\d{1,2})\.\s+(.+?)\r?$")
+_NUMBERED_QUERY_RE = re.compile(r"(?m)^[ \t]*--\s+(\d{1,2})\.\s+(.+?)\r?$")
+_MEMBER_NUMBER_RE = re.compile(r"member_(\d{2})\.sql$")
 _SQL_START_RE = re.compile(r"(?im)^\s*(SELECT|WITH)\b")
 _SQL_COMMENT_RE = re.compile(r"--[^\r\n]*|/\*.*?\*/", re.DOTALL)
 _NON_READ_ONLY_RE = re.compile(
@@ -32,14 +33,19 @@ def _is_read_only(statement: str) -> bool:
 
 def _load_numbered_queries(path: Path) -> list[AcademicQuery]:
     text = path.read_text(encoding="utf-8")
+    member_match = _MEMBER_NUMBER_RE.fullmatch(path.name)
+    if not member_match:
+        raise ValueError(f"Invalid academic query file name: {path.name}")
+    member_number = member_match.group(1)
     matches = list(_NUMBERED_QUERY_RE.finditer(text))
     queries = []
     for index, match in enumerate(matches):
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         section = text[match.end():end]
+        query_id = f"M{member_number}_Q{int(match.group(1)):02d}"
         sql_start = _SQL_START_RE.search(section)
         if not sql_start:
-            raise ValueError(f"Missing SQL statement for query {match.group(1)} in {path.name}")
+            raise ValueError(f"Missing SQL statement for query {query_id}")
         lines = []
         for line in section[sql_start.start():].splitlines():
             if line.lstrip().startswith("--"):
@@ -49,58 +55,19 @@ def _load_numbered_queries(path: Path) -> list[AcademicQuery]:
         if not statement.endswith(";"):
             statement += ";"
         if not _is_read_only(statement):
-            raise ValueError(f"Academic query is not read-only: M01_Q{int(match.group(1)):02d}")
-        query_id = f"M01_Q{int(match.group(1)):02d}"
+            raise ValueError(f"Academic query is not read-only: {query_id}")
         queries.append(AcademicQuery(query_id, match.group(2).strip(), statement))
     return queries
 
 
 def adapt_query_to_current_schema(query: AcademicQuery) -> tuple[str, str | None]:
-    statement = re.sub(r"\bgia_ban\b", "gia_san_pham", query.sql, flags=re.IGNORECASE)
-    notice = None
-
-    if query.query_id.startswith("M04_") and re.search(r"\bct\.don_gia_ban\b", statement, re.IGNORECASE):
-        join_pattern = re.compile(
-            r"(JOIN\s+chi_tiet_don_hang\s+ct\s+ON\s+ct\.ma_don_hang\s*=\s*d\.ma_don_hang)",
-            re.IGNORECASE,
-        )
-        statement, join_count = join_pattern.subn(
-            r"\1 JOIN san_pham sp ON sp.ma_san_pham = ct.ma_san_pham",
-            statement,
-            count=1,
-        )
-        if not join_count:
-            raise ValueError(f"Cannot adapt current-schema price for {query.query_id}")
-        statement = re.sub(
-            r"\bct\.don_gia_ban\b",
-            "sp.gia_san_pham",
-            statement,
-            flags=re.IGNORECASE,
-        )
-        notice = "Đơn giá lịch sử không có trong schema; dùng giá sản phẩm hiện tại."
-    elif query.query_id == "M05_Q09":
-        statement, count = re.subn(
-            r"AVG\s*\(\s*don_gia_ban\s*\)\s+AS\s+gia_ban_trung_binh\s+FROM\s+chi_tiet_don_hang",
-            "AVG(sp.gia_san_pham) AS gia_ban_trung_binh "
-            "FROM chi_tiet_don_hang AS ct "
-            "JOIN san_pham AS sp ON sp.ma_san_pham = ct.ma_san_pham",
-            statement,
-            flags=re.IGNORECASE,
-        )
-        if not count:
-            raise ValueError(f"Cannot adapt current-schema price for {query.query_id}")
-        notice = "Đơn giá lịch sử không có trong schema; dùng giá sản phẩm hiện tại."
-    elif re.search(r"\bdon_gia_ban\b", statement, re.IGNORECASE):
-        raise ValueError(f"Unsupported price column in {query.query_id}")
-
-    statement = re.sub(r"\bct\.ma_chi_tiet\b", "ct.ma_san_pham", statement, flags=re.IGNORECASE)
-    return statement, notice
+    return query.sql, None
 
 
 def load_academic_queries(root: Path) -> dict[str, AcademicQuery]:
     registry: dict[str, AcademicQuery] = {}
     for path in sorted(root.glob("member_*.sql")):
-        if path.name == "member_01.sql":
+        if _NUMBERED_QUERY_RE.search(path.read_text(encoding="utf-8")):
             for query in _load_numbered_queries(path):
                 if query.query_id in registry:
                     raise ValueError(f"Duplicate academic query ID: {query.query_id}")

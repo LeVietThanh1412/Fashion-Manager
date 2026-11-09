@@ -1,177 +1,188 @@
 from dataclasses import replace
+from contextlib import contextmanager
+from datetime import datetime,timedelta,timezone
 from unittest.mock import MagicMock
-
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
-
-import app.core.authentication as authentication
-import app.routers.auth as auth_router
-import app.routers.employees as employee_router
-import app.routers.orders as order_router
-from app.core.config import settings
-from app.core.security import create_access_token, decode_access_token
+from pydantic import ValidationError
+from app.core.authentication import get_current_user
+from app.core.security import hash_password,verify_password,create_access_token,decode_access_token
 import app.core.security as security
+import app.routers.auth as auth_router
+import app.routers.access as access_router
+from app.core.config import settings
+from app.permissions import store_scope,warehouse_scope,grants
+from app.repositories.access import assert_delegable
+from app.routers.access import GrantInput
 from main import app
+from access_helpers import actor,grant
 
 
-def user(role, employee_id="NV100", store_id="CH01", region_id=1, store_region=1):
-    return {
-        "ma_nhan_vien": employee_id,
-        "ho_ten": "Test User",
-        "so_dien_thoai": "0900000000",
-        "quyen_han": role,
-        "ma_cua_hang": store_id,
-        "khu_vuc_quan_ly": region_id if role == "regional_manager" else None,
-        "store_region": store_region,
-        "trang_thai": "active",
-    }
+def test_permissions_cannot_spread_between_assignments():
+    user=actor(grant(scope='region',region=99,permissions=['sales.read']),grant(store='S2',permissions=['employees.salary']))
+    sql,params=store_scope(user,permission='employees.salary')
+    assert 'khu_vuc' not in sql
+    assert params==['S2']
+    sql,params=store_scope(user,permission='sales.read')
+    assert params==[99] and 'ma_cua_hang' not in sql
 
 
-def override_user(actor):
-    app.dependency_overrides[authentication.get_current_user] = lambda: actor
+def test_employee_code_and_reporting_relationship_grant_nothing():
+    user={'ma_nhan_vien':'NV000','quyen_han':'admin','ma_quan_ly':None,'subordinates':['E2']}
+    assert store_scope(user)==('0=1',[])
+    assert warehouse_scope(user)==('0=1',[])
 
 
-def clear_overrides():
-    app.dependency_overrides.clear()
+def test_expired_future_and_revoked_assignments_are_denied():
+    now=datetime.now(timezone.utc).replace(tzinfo=None)
+    user=actor(grant(permissions=['sales.read'],den_ngay=now),
+               grant(permissions=['sales.read'],tu_ngay=now+timedelta(days=1)),
+               grant(permissions=['sales.read'],trang_thai='pending'),
+               grant(permissions=['sales.read'],thu_hoi_luc=now))
+    assert not list(grants(user,'sales.read',now))
 
 
-def test_staff_can_create_order_but_store_manager_cannot(monkeypatch):
-    create_order = MagicMock(return_value="DH123")
-    monkeypatch.setattr(order_router, "create_order", create_order)
-    payload = {
-        "customer_id": "KH01",
-        "employee_id": "NV000",
-        "details": [{"product_id": "SP01", "quantity": 2}],
-    }
+def test_warehouse_scope_does_not_authorize_the_store():
+    user=actor(grant(scope='warehouse',warehouse='K1',permissions=['inventory.read']))
+    assert warehouse_scope(user)==('(k.ma_kho=%s)',['K1'])
+    assert store_scope(user,permission='inventory.read')==('0=1',[])
 
-    override_user(user("store_manager"))
+
+def test_personnel_manager_cannot_issue_roles_or_run_global_queries():
+    app.dependency_overrides[get_current_user]=lambda: actor(grant(permissions=['employees.write','employees.read','queries.execute']))
+    try:
+        with TestClient(app) as client:
+            assert client.post('/api/access/assignments',json={}).status_code==403
+            assert client.get('/api/query-explorer').status_code==403
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_scoped_supervisor_can_create_only_an_in_scope_employee_account(monkeypatch):
+    user=actor(grant(scope='store',store='S1',permissions=['employees.write']))
+    app.dependency_overrides[get_current_user]=lambda:user
+
+    class Cursor:
+        def __init__(self):
+            self.queries=[]
+            self.employee_exists=True
+
+        def execute(self,query,params):
+            self.queries.append((query,params))
+
+        def fetchone(self):
+            return {'ma_nhan_vien':'E2'} if self.employee_exists else None
+
+    cursor=Cursor()
+
+    @contextmanager
+    def transaction():
+        yield cursor
+
+    monkeypatch.setattr(access_router,'transaction',transaction)
+    monkeypatch.setattr(access_router,'hash_password',lambda value:'hashed-password')
+    try:
+        with TestClient(app) as client:
+            response=client.post('/api/access/accounts',json={
+                'employee_id':'E2','account_id':'A2','password':'a-long-random-test-password'
+            })
+            assert response.status_code==201
+            assert cursor.queries[0][1]==['E2','S1','S1']
+            assert 'scope_ch.ma_cua_hang = %s' in cursor.queries[0][0]
+            assert cursor.queries[1][1]==['A2','E2','hashed-password','active']
+            cursor.employee_exists=False
+            before=len(cursor.queries)
+            denied=client.post('/api/access/accounts',json={
+                'employee_id':'E3','account_id':'A3','password':'a-long-random-test-password'
+            })
+            assert denied.status_code==404
+            assert len(cursor.queries)==before+1
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_delegation_must_fit_one_assignment_including_time():
+    now=datetime.now(timezone.utc).replace(tzinfo=None)
+    donor=grant(scope='store',store='S1',permissions=['auth.grant','sales.read'],duoc_uy_quyen=True,den_ngay=now+timedelta(days=1))
+    user=actor(donor,grant(store='S2',permissions=['employees.write']))
+    target={**grant(store='S1'), 'tu_ngay':now+timedelta(seconds=1),'den_ngay':now+timedelta(hours=1)}
+    assert_delegable(MagicMock(),user,target,{'sales.read'})
+    for change,permissions in [({'ma_cua_hang':'S2'},{'sales.read'}), ({},{'employees.write'}), ({'den_ngay':None},{'sales.read'})]:
+        with pytest.raises(HTTPException) as error:
+            assert_delegable(MagicMock(),user,{**target,**change},permissions)
+        assert error.value.status_code==403
+
+
+def test_grant_input_validates_typed_scope_and_time():
+    with pytest.raises(ValidationError):
+        GrantInput(ma_tai_khoan='A',ma_vai_tro='custom',pham_vi='store',ma_khu_vuc=99,tu_ngay='2026-12-01T00:00:00Z')
+    assert GrantInput(ma_tai_khoan='A',ma_vai_tro='custom',pham_vi='region',ma_khu_vuc=99,tu_ngay='2026-12-01T00:00:00Z').ma_khu_vuc==99
+
+
+def test_passwords_are_salted_and_employee_id_is_not_a_password():
+    first=hash_password('a-long-random-test-password')
+    assert first!=hash_password('a-long-random-test-password')
+    assert verify_password('a-long-random-test-password',first)
+    assert not verify_password('E1',first)
+    assert not verify_password('anything',None)
+
+
+def test_login_and_signed_token_use_real_account_credentials(monkeypatch):
+    monkeypatch.setattr(security,'settings',replace(settings,auth_token_secret='test-secret-value-that-is-at-least-32-bytes'))
+    account={**actor(grant(permissions=['sales.create'])), 'mat_khau_hash':hash_password('a-long-random-test-password'),'auth_version':0}
+    monkeypatch.setattr(auth_router,'get_user_by_phone',lambda phone:account)
     with TestClient(app) as client:
-        assert client.post("/api/orders", json=payload).status_code == 403
-    create_order.assert_not_called()
-
-    override_user(user("staff", employee_id="NV200"))
-    with TestClient(app) as client:
-        response = client.post("/api/orders", json=payload)
-    assert response.status_code == 201
-    assert response.json()["order_id"] == "DH123"
-    assert create_order.call_args.args[0] == "NV200"
-    clear_overrides()
+        assert client.post('/api/auth/login',json={'phone':'0900000000','password':'E1'}).status_code==401
+        response=client.post('/api/auth/login',json={'phone':'0900000000','password':'a-long-random-test-password'})
+    assert response.status_code==200
+    assert 'mat_khau_hash' not in response.text
+    assert response.json()['user']['assignments']
+    assert decode_access_token(response.json()['access_token'])['employee_id']=='E1'
 
 
-def test_employee_salary_scope_and_hierarchy_are_enforced(monkeypatch):
-    manager = user("store_manager")
-    same_store_staff = {
-        **user("staff", employee_id="NV201", store_id="CH01"),
-        "store_region": 1,
-    }
-    other_store_staff = {
-        **user("staff", employee_id="NV202", store_id="CH02"),
-        "store_region": 1,
-    }
-    update_salary = MagicMock(return_value=True)
-    monkeypatch.setattr(employee_router, "get_employee", lambda employee_id: {
-        "NV201": same_store_staff,
-        "NV202": other_store_staff,
-    }.get(employee_id))
-    monkeypatch.setattr(employee_router, "update_salary", update_salary)
-    override_user(manager)
+def test_user_can_change_password_and_keeps_only_a_rotated_session(monkeypatch):
+    monkeypatch.setattr(security,'settings',replace(settings,auth_token_secret='test-secret-value-that-is-at-least-32-bytes'))
+    account={'mat_khau_hash':hash_password('old-password-is-long-enough'),'auth_version':4}
+    user=actor(grant(permissions=['sales.create']))
+    user['ma_tai_khoan']='A1'
+    app.dependency_overrides[get_current_user]=lambda:user
 
-    with TestClient(app) as client:
-        allowed = client.put("/api/employees/NV201/salary", json={"salary": 25000000})
-        denied = client.put("/api/employees/NV202/salary", json={"salary": 25000000})
-    assert allowed.status_code == 200
-    assert denied.status_code == 403
-    assert update_salary.call_count == 1
-    clear_overrides()
+    class Cursor:
+        def __init__(self):
+            self.updated=False
 
+        def execute(self,query,params):
+            if query.strip().startswith('UPDATE tai_khoan'):
+                account['mat_khau_hash']=params[0]
+                account['auth_version']+=1
+                self.updated=True
 
-def test_regional_manager_cannot_create_admin_or_cross_region_employee(monkeypatch):
-    regional = user("regional_manager", store_id=None, region_id=1)
-    monkeypatch.setattr(employee_router, "store_region", lambda _store: 2)
-    override_user(regional)
-    payload = {
-        "employee_id": "NV300",
-        "name": "New staff",
-        "phone": "0900000001",
-        "email": "new@example.test",
-        "role": "staff",
-        "store_id": "CH02",
-    }
-    with TestClient(app) as client:
-        cross_region = client.post("/api/employees", json=payload)
-        admin_role = client.post("/api/employees", json={**payload, "role": "admin"})
-    assert cross_region.status_code == 403
-    assert admin_role.status_code == 422
-    clear_overrides()
+        def fetchone(self):
+            return dict(account)
 
+    cursor=Cursor()
 
-def test_staff_cannot_read_employee_management_or_sales(monkeypatch):
-    override_user(user("staff"))
-    with TestClient(app) as client:
-        assert client.get("/api/employees").status_code == 403
-        assert client.get("/api/analytics/sales").status_code == 403
-    clear_overrides()
+    @contextmanager
+    def transaction():
+        yield cursor
 
-
-def test_staff_distribution_is_scoped_to_signed_in_store(monkeypatch):
-    distribution = MagicMock(return_value=[{"ma_san_pham": "SP01", "so_luong_phan_phoi": 4}])
-    monkeypatch.setattr(employee_router, "get_distribution", distribution)
-    override_user(user("staff", store_id="CH09"))
-    with TestClient(app) as client:
-        response = client.get("/api/employee/distribution")
-    assert response.status_code == 200
-    assert response.json()["quantity_type"] == "distributed"
-    distribution.assert_called_once_with("CH09")
-    clear_overrides()
-
-
-def test_signed_token(monkeypatch):
-    monkeypatch.setattr(
-        security,
-        "settings",
-        replace(settings, auth_token_secret="test-secret-value-that-is-at-least-32-bytes"),
-    )
-    token, _ = create_access_token("NV000")
-    assert decode_access_token(token)["employee_id"] == "NV000"
-
-
-def test_login_uses_employee_id_as_password(monkeypatch):
-    monkeypatch.setattr(
-        security,
-        "settings",
-        replace(settings, auth_token_secret="test-secret-value-that-is-at-least-32-bytes"),
-    )
-    account = {
-        **user("staff", employee_id="NV401"),
-        "so_dien_thoai": "0900000041",
-    }
-    monkeypatch.setattr(auth_router, "get_user_by_phone", lambda _phone: account)
-    monkeypatch.setattr(authentication, "get_user_by_id", lambda _employee_id: account)
-
-    with TestClient(app) as client:
-        wrong_password = client.post(
-            "/api/auth/login",
-            json={"phone": "0900000041", "password": "wrong"},
-        )
-        login_response = client.post(
-            "/api/auth/login",
-            json={"phone": "0900000041", "password": "NV401"},
-        )
-        assert wrong_password.status_code == 401
-        assert login_response.status_code == 200
-        login_data = login_response.json()
-        assert "must_change_password" not in login_data["user"]
-        me_response = client.get(
-            "/api/auth/me",
-            headers={"Authorization": f"Bearer {login_data['access_token']}"},
-        )
-    assert me_response.status_code == 200
-    assert me_response.json()["user"]["employee_id"] == "NV401"
-
-def test_employee_manager_sql_contains_scope_constraints():
-    from pathlib import Path
-
-    root = Path(__file__).parents[2] / "sql" / "app" / "employees"
-    salary_sql = (root / "update_salary.sql").read_text(encoding="utf-8")
-    assert "actor_region" in salary_sql
-    assert "actor_store" in salary_sql
-    assert "quyen_han <> 'admin'" in salary_sql
+    monkeypatch.setattr(auth_router,'transaction',transaction)
+    tokens=[]
+    monkeypatch.setattr(auth_router,'create_access_token',lambda account_id,version:(tokens.append((account_id,version)) or ('rotated-token',3600)))
+    try:
+        with TestClient(app) as client:
+            invalid=client.post('/api/auth/password',json={
+                'current_password':'wrong-password','new_password':'new-password-is-long-enough'
+            })
+            assert invalid.status_code==400
+            assert not cursor.updated
+            changed=client.post('/api/auth/password',json={
+                'current_password':'old-password-is-long-enough','new_password':'new-password-is-long-enough'
+            })
+        assert changed.status_code==200
+        assert changed.json()['access_token']=='rotated-token'
+        assert tokens==[('A1',5)]
+        assert verify_password('new-password-is-long-enough',account['mat_khau_hash'])
+    finally:
+        app.dependency_overrides.clear()

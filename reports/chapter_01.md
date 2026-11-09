@@ -1,3 +1,5 @@
+> T?i li?u l?u tr? tr??c schema v3; kh?ng d?ng l?nh ho?c m? h?nh b?n d??i ?? kh?i t?o. Xem [quy tr?nh hi?n h?nh](../README.md), [ERD](erd.md) v? [ph?n quy?n](permissions.md).
+
 # Chương 1 - Giới thiệu
 
 Đề tài xây dựng cơ sở dữ liệu quản lý chuỗi cửa hàng thời trang. Hệ thống hỗ trợ quản lý

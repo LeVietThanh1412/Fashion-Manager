@@ -1,25 +1,42 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-
-from app.core.authentication import require_roles
-from app.repositories.orders import create_order
+import csv
+import io
+from fastapi import APIRouter,Depends,Query
+from fastapi.responses import Response
+from app.core.authentication import require_permissions
+from app.repositories.orders import create_order,list_orders,get_order,cancel_order
 from app.schemas.orders import OrderInput
 
-router = APIRouter(prefix="/api/orders", tags=["orders"])
+router=APIRouter(prefix='/api/orders',tags=['orders'])
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
-def create_order_endpoint(
-    payload: OrderInput,
-    employee: dict = Depends(require_roles("staff")),
-) -> dict[str, str]:
-    if len({detail.product_id for detail in payload.details}) != len(payload.details):
-        raise HTTPException(status_code=422, detail="Mỗi sản phẩm chỉ được xuất hiện một lần trong đơn.")
-    try:
-        order_id = create_order(
-            employee["ma_nhan_vien"],
-            payload.customer_id,
-            [{"product_id": detail.product_id, "quantity": detail.quantity} for detail in payload.details],
-        )
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return {"order_id": order_id, "status": "created"}
+@router.post('',status_code=201)
+def create_order_endpoint(payload: OrderInput,actor=Depends(require_permissions('sales.create'))):
+    code=create_order(actor,payload.customer_id,[d.model_dump() for d in payload.details],payload.store_id,payload.warehouse_id)
+    return {'order_id':code,'status':'created'}
+
+
+@router.get('')
+def orders(limit: int=Query(100,ge=1,le=500),offset: int=Query(0,ge=0),actor=Depends(require_permissions('sales.read'))):
+    return {'items':list_orders(actor,limit=limit,offset=offset)}
+
+
+@router.get('/export')
+def export_orders(actor=Depends(require_permissions('reports.read'))):
+    data=list_orders(actor,permission='reports.read',limit=500)
+    output=io.StringIO()
+    writer=csv.writer(output)
+    writer.writerow(['order_id','store_id','status','total'])
+    for row in data:
+        # Prefix text values to prevent spreadsheet formula execution.
+        writer.writerow(["'"+row['ma_don_hang'],"'"+(row['ma_cua_hang'] or ''),row['trang_thai'],row['total']])
+    return Response(output.getvalue(),media_type='text/csv',headers={'Content-Disposition':'attachment; filename=orders.csv','X-Export-Limit':'500'})
+
+
+@router.get('/{order_id}')
+def detail(order_id: str,actor=Depends(require_permissions('sales.read'))):
+    return get_order(actor,order_id)
+
+
+@router.post('/{order_id}/cancel')
+def cancel(order_id: str,actor=Depends(require_permissions('sales.cancel'))):
+    return cancel_order(actor,order_id)

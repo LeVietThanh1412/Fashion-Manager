@@ -6,11 +6,13 @@ from fastapi.testclient import TestClient
 from mysql.connector import OperationalError
 
 from main import app
+from access_helpers import actor as make_actor,grant
 
 
 def test_sales_buckets_and_recent_orders_use_business_records(monkeypatch):
     import app.repositories.sales as repository
     cursor = MagicMock()
+    cursor.fetchone.return_value = {'latest_order_at': datetime(2026, 10, 23, 8)}
     cursor.fetchall.side_effect = [
         [{'day': '2026-10-23', 'count': 2, 'revenue': 350000}],
         [{'hour': 8, 'count': 2}],
@@ -25,7 +27,7 @@ def test_sales_buckets_and_recent_orders_use_business_records(monkeypatch):
         yield conn
 
     monkeypatch.setattr(repository, 'connection', connected)
-    actor = {"quyen_han": "admin", "khu_vuc_quan_ly": None, "ma_cua_hang": None}
+    actor = make_actor(grant(scope="system",permissions=["reports.read"]))
     result = repository.get_sales_dashboard(actor, datetime(2026, 10, 23, 2, tzinfo=timezone.utc))
     assert result['total_orders'] == 2
     assert result['total_revenue'] == 350000
@@ -35,13 +37,36 @@ def test_sales_buckets_and_recent_orders_use_business_records(monkeypatch):
     assert result['hourly'][8]['count'] == 2
     assert result['orders'][0]['timestamp'].endswith('+07:00')
     assert result['categories'][0]['count'] == 3
-    assert cursor.execute.call_args_list[0].args[1] == {
-        "start": datetime(2026, 9, 24),
-        "end": datetime(2026, 10, 24),
-        "actor_role": "admin",
-        "actor_region": None,
-        "actor_store": None,
-    }
+    assert cursor.execute.call_args_list[1].args[1] == [datetime(2026,9,24),datetime(2026,10,24)]
+
+
+def test_sales_dashboard_uses_the_last_order_date_as_its_thirty_day_anchor(monkeypatch):
+    import app.repositories.sales as repository
+    cursor = MagicMock()
+    cursor.fetchone.return_value = {'latest_order_at': datetime(2026, 8, 22, 8, 36)}
+    cursor.fetchall.side_effect = [
+        [{'day': '2026-08-22', 'count': 2, 'revenue': 350000}],
+        [{'hour': 8, 'count': 2}],
+        [{'id': 'DM01', 'name': 'Áo', 'count': 3}],
+        [{'ma_don_hang': 'DH01', 'ngay_tao_don': datetime(2026, 8, 22, 8), 'ma_khach_hang': 'KH01', 'ten_cua_hang': 'Cửa hàng 1', 'quantity': 2, 'revenue': 150000}],
+    ]
+    conn = MagicMock()
+    conn.cursor.return_value = cursor
+
+    @contextmanager
+    def connected():
+        yield conn
+
+    monkeypatch.setattr(repository, 'connection', connected)
+    actor = {'quyen_han': 'admin', 'khu_vuc_quan_ly': None, 'ma_cua_hang': None}
+
+    result = repository.get_sales_dashboard(actor, datetime(2026, 10, 27, 2, tzinfo=timezone.utc))
+
+    assert result['period'] == {'start': '2026-07-24', 'end': '2026-08-22', 'mode': 'latest_order'}
+    assert result['total_orders'] == 2
+    assert result['daily'][-1]['date'] == '2026-08-22'
+    assert cursor.execute.call_args_list[1].args[1][0] == datetime(2026, 7, 24)
+    assert cursor.execute.call_args_list[1].args[1][1] == datetime(2026, 8, 23)
 
 
 def test_sales_failure_is_not_reported_as_zero_revenue(monkeypatch):
@@ -52,9 +77,7 @@ def test_sales_failure_is_not_reported_as_zero_revenue(monkeypatch):
 
     monkeypatch.setattr(router, 'get_sales_dashboard', unavailable)
     import app.core.authentication as authentication
-    app.dependency_overrides[authentication.get_current_user] = lambda: {
-        "quyen_han": "admin",
-    }
+    app.dependency_overrides[authentication.get_current_user] = lambda: make_actor(grant(scope='system',permissions=['reports.read']))
     with TestClient(app) as client:
         response = client.get('/api/analytics/sales')
         assert response.status_code == 503
