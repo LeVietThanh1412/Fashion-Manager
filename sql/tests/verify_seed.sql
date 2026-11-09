@@ -12,3 +12,10 @@ SELECT p.ma_phan_phoi FROM phan_phoi p LEFT JOIN kho k ON k.ma_kho=p.ma_kho_dich
 WHERE k.ma_cua_hang<>p.ma_cua_hang OR k.ma_kho IS NULL;
 SELECT ct.ma_don_hang,ct.ma_san_pham FROM chi_tiet_don_hang ct
 WHERE ct.don_gia_ban IS NULL OR ct.giam_gia IS NULL;
+
+-- Demo report preview: order counts and net sales by store.
+SELECT d.ma_cua_hang,COUNT(DISTINCT d.ma_don_hang) AS order_count,
+       SUM(ct.so_luong) AS item_count,
+       SUM(ct.so_luong*ct.don_gia_ban-ct.giam_gia) AS net_sales
+FROM don_hang d JOIN chi_tiet_don_hang ct ON ct.ma_don_hang=d.ma_don_hang
+GROUP BY d.ma_cua_hang ORDER BY d.ma_cua_hang;

@@ -11,7 +11,7 @@
    python scripts/database.py init --database fashion_dev_local --host 127.0.0.1 --port 3306 --user root --demo
    ```
 
-   Script hỏi mật khẩu MySQL nếu chưa có `FASHION_LOCAL_DB_PASSWORD`. File dữ liệu có phần hệ thống (khu vực, chức vụ, vai trò và quyền) và phần demo tùy chọn qua `--demo` (cửa hàng, kho, nhân viên, tài khoản khóa, sản phẩm, khách hàng, đơn bán, phiếu điều chuyển và sổ biến động kho). Demo không chứa mật khẩu hoặc quyền quản trị.
+   Script hỏi mật khẩu MySQL nếu chưa có `FASHION_LOCAL_DB_PASSWORD`. File dữ liệu có phần hệ thống (khu vực, chức vụ, vai trò và quyền) và phần demo tùy chọn qua `--demo` (cửa hàng, kho, nhân viên, tài khoản khóa, sản phẩm, khách hàng, đơn bán, phiếu điều chuyển và sổ biến động kho). Demo có 15 đơn hàng trên 15 ngày bán, 21 dòng hàng, 4 SKU, 2 cửa hàng và 2 phiếu điều chuyển; nhờ vậy dashboard và báo cáo có dữ liệu so sánh trong khoảng 30 ngày. Demo không chứa mật khẩu hoặc quyền quản trị.
 3. Tạo quản trị đầu tiên bằng mật khẩu tự nhập:
 
    ```powershell

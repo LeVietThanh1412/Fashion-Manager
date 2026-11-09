@@ -31,6 +31,25 @@ def test_database_health_reports_schema_version_without_response_error(monkeypat
     assert response.json()=={'status':'ok','mysql_version':'8.0.45','schema_version':3}
 
 
+def test_database_health_reports_incompatible_schema(monkeypatch):
+    import main
+    cursor=MagicMock()
+    cursor.fetchone.return_value=('8.0.45',)
+    cursor.fetchall.return_value=[(2,)]
+    conn=MagicMock()
+    conn.cursor.return_value=cursor
+
+    @contextmanager
+    def connected():
+        yield conn
+
+    monkeypatch.setattr(main,'connection',connected)
+    with TestClient(app) as client:
+        response=client.get('/api/health/db')
+    assert response.status_code==503
+    assert response.json()['detail']=='Phiên bản schema database không tương thích. Cần schema phiên bản 3.'
+
+
 def test_default_cors_allows_the_deployed_frontend(monkeypatch):
     from app.core.config import Settings
     monkeypatch.delenv('APP_CORS_ORIGINS', raising=False)

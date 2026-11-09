@@ -1087,8 +1087,8 @@ async function checkBackendHealth() {
     return true;
   } catch (error) {
     dot.className = 'w-2 h-2 rounded-full bg-red-600 inline-block';
-    title.textContent = 'Kiểm tra trạng thái gặp lỗi';
-    description.textContent = 'Không đọc được /api/health/db. Xem log backend và tải lại; các số liệu khác có thể vẫn hoạt động.';
+    title.textContent = 'Database chưa kết nối';
+    description.textContent = `${error.message} Xem log backend; các số liệu khác có thể vẫn hoạt động.`;
     return false;
   }
 }

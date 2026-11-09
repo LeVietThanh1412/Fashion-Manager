@@ -90,7 +90,8 @@ INSERT INTO vai_tro_quyen VALUES ('warehouse_staff','inventory.adjust');
 INSERT INTO vai_tro_quyen VALUES ('warehouse_staff','inventory.read');
 INSERT INTO vai_tro_quyen VALUES ('warehouse_staff','inventory.transfer');
 -- @demo
--- Fictional demo on a fresh v3 schema. Passwords and administrator grants are never seeded.
+-- Fictional demo on a fresh v3 schema with recent sales, inventory and reporting coverage.
+-- Passwords and administrator grants are never seeded.
 INSERT INTO danh_muc VALUES ('SHOE','Shoes'),('SHIRT','Shirts');
 INSERT INTO cua_hang (ma_cua_hang,ten_cua_hang,khu_vuc,dia_chi,so_dien_thoai,email) VALUES
 ('DEMO-S1','Hanoi flagship',1,'1 Demo Street, Hanoi','0900000101','s1@example.test'),
@@ -118,37 +119,105 @@ INSERT INTO mau_san_pham (ma_mau,ma_danh_muc,ten_san_pham) VALUES
 ('DEMO-M1','SHOE','Everyday sneaker'),('DEMO-M2','SHIRT','Oxford shirt');
 INSERT INTO san_pham (ma_san_pham,ma_mau,mau_sac,kich_co,gia_san_pham) VALUES
 ('DEMO-SKU1','DEMO-M1','Black','39',699000),
-('DEMO-SKU2','DEMO-M1','White','40',599000),('DEMO-SKU3','DEMO-M2','Blue','M',449000);
-INSERT INTO khach_hang VALUES ('DEMO-C1','Demo Customer One','0900000301'),
-('DEMO-C2','Demo Customer Two','0900000302');
+('DEMO-SKU2','DEMO-M1','White','40',599000),
+('DEMO-SKU3','DEMO-M2','Blue','M',449000),
+('DEMO-SKU4','DEMO-M2','White','L',499000);
+INSERT INTO khach_hang VALUES
+('DEMO-C1','Demo Customer One','0900000301'),
+('DEMO-C2','Demo Customer Two','0900000302'),
+('DEMO-C3','Demo Customer Three','0900000303'),
+('DEMO-C4','Demo Customer Four','0900000304'),
+('DEMO-C5','Demo Customer Five','0900000305'),
+('DEMO-C6','Demo Customer Six','0900000306');
 INSERT INTO don_hang (ma_don_hang,ma_nhan_vien,ma_khach_hang,ma_cua_hang,ma_kho,ngay_tao_don) VALUES
-('DEMO-O1','DEMO-SELLER','DEMO-C1','DEMO-S1','DEMO-K1','2026-11-01 10:00:00'),
-('DEMO-O2','DEMO-SELLER2','DEMO-C2','DEMO-S2','DEMO-K2','2026-11-02 15:00:00');
+('DEMO-O1','DEMO-SELLER','DEMO-C1','DEMO-S1','DEMO-K1','2026-11-21 10:00:00'),
+('DEMO-O2','DEMO-SELLER2','DEMO-C2','DEMO-S2','DEMO-K2','2026-11-22 15:00:00'),
+('DEMO-O3','DEMO-SELLER','DEMO-C3','DEMO-S1','DEMO-K1','2026-11-01 09:00:00'),
+('DEMO-O4','DEMO-SELLER2','DEMO-C4','DEMO-S2','DEMO-K2','2026-11-03 12:00:00'),
+('DEMO-O5','DEMO-SELLER','DEMO-C5','DEMO-S1','DEMO-K1','2026-11-05 17:00:00'),
+('DEMO-O6','DEMO-SELLER2','DEMO-C6','DEMO-S2','DEMO-K2','2026-11-07 11:00:00'),
+('DEMO-O7','DEMO-SELLER','DEMO-C1','DEMO-S1','DEMO-K1','2026-11-09 14:00:00'),
+('DEMO-O8','DEMO-SELLER2','DEMO-C2','DEMO-S2','DEMO-K2','2026-11-11 19:00:00'),
+('DEMO-O9','DEMO-SELLER','DEMO-C3','DEMO-S1','DEMO-K1','2026-11-13 10:00:00'),
+('DEMO-O10','DEMO-SELLER2','DEMO-C4','DEMO-S2','DEMO-K2','2026-11-15 13:00:00'),
+('DEMO-O11','DEMO-SELLER','DEMO-C5','DEMO-S1','DEMO-K1','2026-11-17 16:00:00'),
+('DEMO-O12','DEMO-SELLER2','DEMO-C6','DEMO-S2','DEMO-K2','2026-11-19 20:00:00'),
+('DEMO-O13','DEMO-SELLER','DEMO-C1','DEMO-S1','DEMO-K1','2026-11-23 09:00:00'),
+('DEMO-O14','DEMO-SELLER2','DEMO-C2','DEMO-S2','DEMO-K2','2026-11-26 15:00:00'),
+('DEMO-O15','DEMO-SELLER','DEMO-C3','DEMO-S1','DEMO-K1','2026-11-29 18:00:00');
 -- Saved sale price is historical; SKU1 currently costs 699000.
 INSERT INTO chi_tiet_don_hang VALUES
 ('DEMO-O1','DEMO-SKU1',2,599000,98000),('DEMO-O1','DEMO-SKU2',1,649000,0),
-('DEMO-O2','DEMO-SKU1',3,599000,0);
+('DEMO-O2','DEMO-SKU1',3,599000,0),
+('DEMO-O3','DEMO-SKU1',1,649000,0),('DEMO-O3','DEMO-SKU3',1,429000,0),
+('DEMO-O4','DEMO-SKU2',1,579000,0),
+('DEMO-O5','DEMO-SKU4',1,499000,0),
+('DEMO-O6','DEMO-SKU1',2,629000,30000),
+('DEMO-O7','DEMO-SKU3',1,449000,0),('DEMO-O7','DEMO-SKU2',1,599000,20000),
+('DEMO-O8','DEMO-SKU4',2,479000,0),
+('DEMO-O9','DEMO-SKU1',1,699000,0),
+('DEMO-O10','DEMO-SKU3',2,429000,30000),
+('DEMO-O11','DEMO-SKU2',1,599000,0),
+('DEMO-O12','DEMO-SKU1',2,649000,50000),('DEMO-O12','DEMO-SKU4',1,499000,0),
+('DEMO-O13','DEMO-SKU3',1,449000,0),
+('DEMO-O14','DEMO-SKU4',1,499000,0),('DEMO-O14','DEMO-SKU2',1,579000,0),
+('DEMO-O15','DEMO-SKU1',1,699000,0),('DEMO-O15','DEMO-SKU3',1,449000,0);
 INSERT INTO phan_phoi (ma_phan_phoi,ma_nhan_vien,ma_cua_hang,ma_kho_nguon,ma_kho_dich,ngay_phan_phoi) VALUES
 ('DEMO-T1','DEMO-WAREHOUSE','DEMO-S1','DEMO-CENTRAL','DEMO-K1','2026-10-30'),
 ('DEMO-T2','DEMO-WAREHOUSE','DEMO-S2','DEMO-CENTRAL','DEMO-K2','2026-10-31');
 INSERT INTO chi_tiet_phan_phoi VALUES
-('DEMO-T1','DEMO-SKU1',20),('DEMO-T1','DEMO-SKU2',10),('DEMO-T2','DEMO-SKU1',15);
+('DEMO-T1','DEMO-SKU1',20),('DEMO-T1','DEMO-SKU2',10),
+('DEMO-T1','DEMO-SKU3',10),('DEMO-T1','DEMO-SKU4',10),
+('DEMO-T2','DEMO-SKU1',15),('DEMO-T2','DEMO-SKU2',10),
+('DEMO-T2','DEMO-SKU3',10),('DEMO-T2','DEMO-SKU4',10);
 -- Stock keys start at zero for FK integrity; final balances derive only from the ledger.
 INSERT INTO ton_kho (ma_kho,ma_san_pham,so_luong) VALUES
 ('DEMO-CENTRAL','DEMO-SKU1',0),('DEMO-CENTRAL','DEMO-SKU2',0),
-('DEMO-K1','DEMO-SKU1',0),('DEMO-K1','DEMO-SKU2',0),('DEMO-K2','DEMO-SKU1',0);
+('DEMO-CENTRAL','DEMO-SKU3',0),('DEMO-CENTRAL','DEMO-SKU4',0),
+('DEMO-K1','DEMO-SKU1',0),('DEMO-K1','DEMO-SKU2',0),('DEMO-K1','DEMO-SKU3',0),('DEMO-K1','DEMO-SKU4',0),
+('DEMO-K2','DEMO-SKU1',0),('DEMO-K2','DEMO-SKU2',0),('DEMO-K2','DEMO-SKU3',0),('DEMO-K2','DEMO-SKU4',0);
 INSERT INTO bien_dong_kho (ma_kho,ma_san_pham,so_luong,loai,ly_do,ma_tai_khoan,ma_don_hang,ma_phan_phoi,tao_luc) VALUES
 ('DEMO-CENTRAL','DEMO-SKU1',100,'adjustment','Counted receipt','DEMO-WAREHOUSE',NULL,NULL,'2026-10-29 08:00:00'),
 ('DEMO-CENTRAL','DEMO-SKU2',60,'adjustment','Counted receipt','DEMO-WAREHOUSE',NULL,NULL,'2026-10-29 08:00:00'),
+('DEMO-CENTRAL','DEMO-SKU3',40,'adjustment','Counted receipt','DEMO-WAREHOUSE',NULL,NULL,'2026-10-29 08:00:00'),
+('DEMO-CENTRAL','DEMO-SKU4',40,'adjustment','Counted receipt','DEMO-WAREHOUSE',NULL,NULL,'2026-10-29 08:00:00'),
 ('DEMO-CENTRAL','DEMO-SKU1',-20,'transfer','Dispatch T1','DEMO-WAREHOUSE',NULL,'DEMO-T1','2026-10-30 09:00:00'),
 ('DEMO-K1','DEMO-SKU1',20,'transfer','Receive T1','DEMO-WAREHOUSE',NULL,'DEMO-T1','2026-10-30 09:00:00'),
 ('DEMO-CENTRAL','DEMO-SKU2',-10,'transfer','Dispatch T1','DEMO-WAREHOUSE',NULL,'DEMO-T1','2026-10-30 09:00:00'),
 ('DEMO-K1','DEMO-SKU2',10,'transfer','Receive T1','DEMO-WAREHOUSE',NULL,'DEMO-T1','2026-10-30 09:00:00'),
+('DEMO-CENTRAL','DEMO-SKU3',-10,'transfer','Dispatch T1','DEMO-WAREHOUSE',NULL,'DEMO-T1','2026-10-30 09:00:00'),
+('DEMO-K1','DEMO-SKU3',10,'transfer','Receive T1','DEMO-WAREHOUSE',NULL,'DEMO-T1','2026-10-30 09:00:00'),
+('DEMO-CENTRAL','DEMO-SKU4',-10,'transfer','Dispatch T1','DEMO-WAREHOUSE',NULL,'DEMO-T1','2026-10-30 09:00:00'),
+('DEMO-K1','DEMO-SKU4',10,'transfer','Receive T1','DEMO-WAREHOUSE',NULL,'DEMO-T1','2026-10-30 09:00:00'),
 ('DEMO-CENTRAL','DEMO-SKU1',-15,'transfer','Dispatch T2','DEMO-WAREHOUSE',NULL,'DEMO-T2','2026-10-31 09:00:00'),
 ('DEMO-K2','DEMO-SKU1',15,'transfer','Receive T2','DEMO-WAREHOUSE',NULL,'DEMO-T2','2026-10-31 09:00:00'),
-('DEMO-K1','DEMO-SKU1',-2,'sale','Sale O1','DEMO-SELLER','DEMO-O1',NULL,'2026-11-01 10:00:00'),
-('DEMO-K1','DEMO-SKU2',-1,'sale','Sale O1','DEMO-SELLER','DEMO-O1',NULL,'2026-11-01 10:00:00'),
-('DEMO-K2','DEMO-SKU1',-3,'sale','Sale O2','DEMO-SELLER2','DEMO-O2',NULL,'2026-11-02 15:00:00');
+('DEMO-CENTRAL','DEMO-SKU2',-10,'transfer','Dispatch T2','DEMO-WAREHOUSE',NULL,'DEMO-T2','2026-10-31 09:00:00'),
+('DEMO-K2','DEMO-SKU2',10,'transfer','Receive T2','DEMO-WAREHOUSE',NULL,'DEMO-T2','2026-10-31 09:00:00'),
+('DEMO-CENTRAL','DEMO-SKU3',-10,'transfer','Dispatch T2','DEMO-WAREHOUSE',NULL,'DEMO-T2','2026-10-31 09:00:00'),
+('DEMO-K2','DEMO-SKU3',10,'transfer','Receive T2','DEMO-WAREHOUSE',NULL,'DEMO-T2','2026-10-31 09:00:00'),
+('DEMO-CENTRAL','DEMO-SKU4',-10,'transfer','Dispatch T2','DEMO-WAREHOUSE',NULL,'DEMO-T2','2026-10-31 09:00:00'),
+('DEMO-K2','DEMO-SKU4',10,'transfer','Receive T2','DEMO-WAREHOUSE',NULL,'DEMO-T2','2026-10-31 09:00:00'),
+('DEMO-K1','DEMO-SKU1',-1,'sale','Sale O3','DEMO-SELLER','DEMO-O3',NULL,'2026-11-01 09:00:00'),
+('DEMO-K1','DEMO-SKU3',-1,'sale','Sale O3','DEMO-SELLER','DEMO-O3',NULL,'2026-11-01 09:00:00'),
+('DEMO-K2','DEMO-SKU2',-1,'sale','Sale O4','DEMO-SELLER2','DEMO-O4',NULL,'2026-11-03 12:00:00'),
+('DEMO-K1','DEMO-SKU4',-1,'sale','Sale O5','DEMO-SELLER','DEMO-O5',NULL,'2026-11-05 17:00:00'),
+('DEMO-K2','DEMO-SKU1',-2,'sale','Sale O6','DEMO-SELLER2','DEMO-O6',NULL,'2026-11-07 11:00:00'),
+('DEMO-K1','DEMO-SKU3',-1,'sale','Sale O7','DEMO-SELLER','DEMO-O7',NULL,'2026-11-09 14:00:00'),
+('DEMO-K1','DEMO-SKU2',-1,'sale','Sale O7','DEMO-SELLER','DEMO-O7',NULL,'2026-11-09 14:00:00'),
+('DEMO-K2','DEMO-SKU4',-2,'sale','Sale O8','DEMO-SELLER2','DEMO-O8',NULL,'2026-11-11 19:00:00'),
+('DEMO-K1','DEMO-SKU1',-1,'sale','Sale O9','DEMO-SELLER','DEMO-O9',NULL,'2026-11-13 10:00:00'),
+('DEMO-K2','DEMO-SKU3',-2,'sale','Sale O10','DEMO-SELLER2','DEMO-O10',NULL,'2026-11-15 13:00:00'),
+('DEMO-K1','DEMO-SKU2',-1,'sale','Sale O11','DEMO-SELLER','DEMO-O11',NULL,'2026-11-17 16:00:00'),
+('DEMO-K2','DEMO-SKU1',-2,'sale','Sale O12','DEMO-SELLER2','DEMO-O12',NULL,'2026-11-19 20:00:00'),
+('DEMO-K2','DEMO-SKU4',-1,'sale','Sale O12','DEMO-SELLER2','DEMO-O12',NULL,'2026-11-19 20:00:00'),
+('DEMO-K1','DEMO-SKU1',-2,'sale','Sale O1','DEMO-SELLER','DEMO-O1',NULL,'2026-11-21 10:00:00'),
+('DEMO-K1','DEMO-SKU2',-1,'sale','Sale O1','DEMO-SELLER','DEMO-O1',NULL,'2026-11-21 10:00:00'),
+('DEMO-K2','DEMO-SKU1',-3,'sale','Sale O2','DEMO-SELLER2','DEMO-O2',NULL,'2026-11-22 15:00:00'),
+('DEMO-K1','DEMO-SKU3',-1,'sale','Sale O13','DEMO-SELLER','DEMO-O13',NULL,'2026-11-23 09:00:00'),
+('DEMO-K2','DEMO-SKU4',-1,'sale','Sale O14','DEMO-SELLER2','DEMO-O14',NULL,'2026-11-26 15:00:00'),
+('DEMO-K2','DEMO-SKU2',-1,'sale','Sale O14','DEMO-SELLER2','DEMO-O14',NULL,'2026-11-26 15:00:00'),
+('DEMO-K1','DEMO-SKU1',-1,'sale','Sale O15','DEMO-SELLER','DEMO-O15',NULL,'2026-11-29 18:00:00'),
+('DEMO-K1','DEMO-SKU3',-1,'sale','Sale O15','DEMO-SELLER','DEMO-O15',NULL,'2026-11-29 18:00:00');
 UPDATE ton_kho tk JOIN (SELECT ma_kho,ma_san_pham,SUM(so_luong) AS balance FROM bien_dong_kho
 GROUP BY ma_kho,ma_san_pham) ledger ON ledger.ma_kho=tk.ma_kho AND ledger.ma_san_pham=tk.ma_san_pham
 SET tk.so_luong=ledger.balance;

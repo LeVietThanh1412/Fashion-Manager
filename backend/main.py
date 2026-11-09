@@ -1,5 +1,6 @@
-from pathlib import Path
+import logging
 import re
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +39,7 @@ app.include_router(inventory_router)
 app.include_router(access_router)
 app.include_router(reports_router)
 SQL_LOADER = QueryLoader(Path(__file__).resolve().parents[1] / "sql" / "app")
+logger = logging.getLogger(__name__)
 
 DATABASE_FIELD_NAMES = {
     "ma_nhan_vien": "mã nhân viên",
@@ -196,11 +198,19 @@ def database_health() -> dict[str, str | int]:
                 cursor.execute('SELECT version FROM schema_version')
                 schema_versions=[row[0] for row in cursor.fetchall()]
                 if schema_versions != [3]:
-                    raise ValueError('Unsupported database schema')
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="Phiên bản schema database không tương thích. Cần schema phiên bản 3.",
+                    )
             finally:
                 cursor.close()
         return {"status": "ok", "mysql_version": version, "schema_version": 3}
-    except Exception as exc:
+    except MySQLError as exc:
+        logger.error(
+            "Database health check failed (mysql_errno=%s, error_type=%s)",
+            getattr(exc, "errno", None),
+            type(exc).__name__,
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Không thể kết nối MySQL. Kiểm tra DB_HOST, DB_PORT, tài khoản và TLS trên backend.",

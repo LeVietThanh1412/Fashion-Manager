@@ -137,14 +137,24 @@ def test_fresh_demo_has_complete_prices_and_ledger_balances(local_db):
     conn,cursor,*_=local_db
     apply(conn,'init')
     run_file(conn,ROOT/'sql/data/02_seed_data.sql',False,section='demo')
-    assert scalar(cursor,'SELECT COUNT(*) FROM don_hang')==2
+    assert scalar(cursor,'SELECT COUNT(*) FROM don_hang')==15
+    assert scalar(cursor,'SELECT COUNT(*) FROM chi_tiet_don_hang')==21
     assert scalar(cursor,'SELECT COUNT(*) FROM phan_phoi')==2
-    assert scalar(cursor,'SELECT COUNT(*) FROM bien_dong_kho')==11
+    assert scalar(cursor,'SELECT COUNT(*) FROM chi_tiet_phan_phoi')==8
+    assert scalar(cursor,'SELECT COUNT(*) FROM bien_dong_kho')==41
+    assert scalar(cursor,'SELECT COUNT(DISTINCT DATE(ngay_tao_don)) FROM don_hang')==15
+    assert scalar(cursor,'SELECT COUNT(DISTINCT ma_cua_hang) FROM don_hang')==2
+    assert scalar(cursor,'SELECT COUNT(DISTINCT ma_nhan_vien) FROM don_hang')==2
+    assert scalar(cursor,"SELECT DATEDIFF(MAX(DATE(ngay_tao_don)),MIN(DATE(ngay_tao_don))) FROM don_hang")==28
+    assert scalar(cursor,'SELECT SUM(ct.so_luong*ct.don_gia_ban-ct.giam_gia) FROM chi_tiet_don_hang ct')>0
+    assert scalar(cursor,"SELECT COUNT(*) FROM san_pham WHERE trang_thai='active'")==4
     assert scalar(cursor,"SELECT COUNT(*) FROM phan_cong_quyen WHERE ma_vai_tro='system_admin'")==0
     assert scalar(cursor,"SELECT COUNT(*) FROM tai_khoan WHERE mat_khau_hash IS NOT NULL OR trang_thai<>'locked'")==0
     assert scalar(cursor,"SELECT COUNT(*) FROM chi_tiet_don_hang WHERE don_gia_ban IS NULL OR giam_gia IS NULL")==0
     assert scalar(cursor,"SELECT COUNT(*) FROM ton_kho tk LEFT JOIN (SELECT ma_kho,ma_san_pham,SUM(so_luong) AS q FROM bien_dong_kho GROUP BY ma_kho,ma_san_pham) b ON b.ma_kho=tk.ma_kho AND b.ma_san_pham=tk.ma_san_pham WHERE tk.so_luong<>COALESCE(b.q,0)")==0
-    assert scalar(cursor,"SELECT so_luong FROM ton_kho WHERE ma_kho='DEMO-K1' AND ma_san_pham='DEMO-SKU1'")==18
+    assert scalar(cursor,"SELECT so_luong FROM ton_kho WHERE ma_kho='DEMO-K1' AND ma_san_pham='DEMO-SKU1'")==15
+    assert scalar(cursor,"SELECT so_luong FROM ton_kho WHERE ma_kho='DEMO-K2' AND ma_san_pham='DEMO-SKU4'")==6
+    assert scalar(cursor,"SELECT COUNT(DISTINCT ma_danh_muc) FROM san_pham s JOIN mau_san_pham m ON m.ma_mau=s.ma_mau")==2
     assert scalar(cursor,"SELECT don_gia_ban FROM chi_tiet_don_hang WHERE ma_don_hang='DEMO-O1' AND ma_san_pham='DEMO-SKU1'")==599000
 
 
@@ -164,7 +174,7 @@ def test_reset_dev_uses_exact_local_config_and_rebuilds_demo(local_db,tmp_path,m
         cursor.execute(f'SELECT version FROM `{name}`.schema_version')
         assert cursor.fetchone()[0]==3
         cursor.execute(f'SELECT COUNT(*) FROM `{name}`.don_hang')
-        assert cursor.fetchone()[0]==2
+        assert cursor.fetchone()[0]==15
         cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=%s AND table_name='obsolete_marker'",[name])
         assert cursor.fetchone()[0]==0
     finally:
